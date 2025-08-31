@@ -32,6 +32,16 @@ Documentation for the tools in this repository:
 
 * [Litton Drum Image File Format](doc/drum-image-format.md)
 
+## TODO
+
+* Support for non-ASCII character sets.
+* Input and output punch tape formats.
+* Front panel interface that mimics the actual machine.
+* Disassembler for drum images and paper tapes.
+* Simple assembler for creating new programs.
+* Custom OPUS implementation to get a basic OS for the emulator.
+* Dump the real OPUS and integrate it when possible.
+
 ## License
 
 Distributed under the terms of the MIT license.
