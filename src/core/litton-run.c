@@ -558,6 +558,13 @@ litton_step_result_t litton_step(litton_state_t *state)
     uint16_t insn;
     litton_word_t temp;
 
+    /* Detect a program that is spinning out of control because we
+     * haven't seen a jump instruction in a while. */
+    if (state->spin_counter > LITTON_DRUM_MAX_SIZE) {
+        return LITTON_STEP_SPINNING;
+    }
+    ++(state->spin_counter);
+
     if (state->CR < 0x40) {
         /* Single-byte instruction */
         switch (state->CR) {
@@ -751,6 +758,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             state->A = state->I;
             state->I = state->drum[addr];
             state->PC = addr;
+            state->spin_counter = 0;
 
             /* Convert the instruction into an unconditional jump
              * when we rotate it back in again later. */
@@ -770,6 +778,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Unconditional jump */
             state->I = state->drum[addr];
             state->PC = addr;
+            state->spin_counter = 0;
             break;
 
         case 0xF0:
@@ -778,6 +787,7 @@ litton_step_result_t litton_step(litton_state_t *state)
                 /* Jump to the destination address */
                 state->I = state->drum[addr];
                 state->PC = addr;
+                state->spin_counter = 0;
 
                 /* Convert the instruction into an unconditional jump
                  * when we rotate it back in again later. */

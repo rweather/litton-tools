@@ -23,37 +23,50 @@
 #include <litton/litton.h>
 #include <string.h>
 
-void litton_init(litton_state_t *state, litton_drum_loc_t size)
+void litton_init(litton_state_t *state)
 {
     /* Clear the machine state */
     memset(state, 0, sizeof(litton_state_t));
 
-    /* Set the size of the memory drum */
-    if (size >= (LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS)) {
-        size = LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS;
-    }
-    state->memory_size = size;
+    /* Set the default entry point at reset time to the last word in memory */
+    state->entry_point = LITTON_DRUM_MAX_SIZE - 1;
 
-    /* Set the last word of memory to "Halt", "Jump to Last", "Halt".
-     * This will halt the machine immediately.  If it resumes, it will
-     * jump back to the last word and halt again. */
-    size = size - 1;
-    state->drum[size - 1] = 0x0000E00000ULL;
-    state->drum[size - 1] |= ((litton_word_t)size) << 8;
-    state->drum[size - 1] |= ((litton_word_t)(size & 0xFF)) << 32;
-    state->PC = size;
+    /* Set the default drum size */
+    litton_set_drum_size(state, LITTON_DRUM_MAX_SIZE);
 
-    /* Reset the machine, which will effect a jump to 0xFFF */
+    /* Reset the machine, which will effect a jump to the entry point */
     litton_reset(state);
+}
+
+void litton_set_drum_size(litton_state_t *state, litton_drum_loc_t size)
+{
+    /* Range-check the size, just in case */
+    if (size == 0 || size > LITTON_DRUM_MAX_SIZE) {
+        size = LITTON_DRUM_MAX_SIZE;
+    }
+    state->drum_size = size;
+
+    /* Adjust the entry point if it is now beyond the end of the drum */
+    if (state->entry_point >= size) {
+        state->entry_point = size - 1;
+    }
+}
+
+void litton_set_entry_point(litton_state_t *state, litton_drum_loc_t entry)
+{
+    if (entry >= state->drum_size) {
+        entry = state->drum_size - 1;
+    }
+    state->entry_point = entry;
 }
 
 void litton_reset(litton_state_t *state)
 {
-    /* Force an unconditional jump to the last word of memory into CR and I */
-    litton_drum_loc_t end = state->memory_size - 1;
-    state->CR = 0xE0 | (end >> 8);
-    state->I = ((litton_word_t)(end & 0xFFU)) << 32;
-    state->PC = end;
+    /* Force an unconditional jump to the entry point into CR and I */
+    litton_drum_loc_t entry = state->entry_point;
+    state->CR = 0xE0 | (entry >> 8);
+    state->I = ((litton_word_t)(entry & 0xFFU)) << 32;
+    state->PC = entry;
 }
 
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)

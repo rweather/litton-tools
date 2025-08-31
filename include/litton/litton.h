@@ -97,6 +97,11 @@ typedef uint64_t litton_word_t;
 #define LITTON_DRUM_NUM_SECTORS 128
 
 /**
+ * @brief Maximum size of the drum in words.
+ */
+#define LITTON_DRUM_MAX_SIZE (LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS)
+
+/**
  * @brief Number of the first read-only sealed track containing "OPUS".
  */
 #define LITTON_DRUM_SEALED_TRACK_1 30
@@ -537,8 +542,8 @@ struct litton_state_s
     /** Contents of drum memory */
     litton_word_t drum[LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS];
 
-    /** Size of memory.  Some models have 4096 words, others have 2048 */
-    litton_drum_loc_t memory_size;
+    /** Size of drum memory.  Some models have 4096 words, others have 2048 */
+    litton_drum_loc_t drum_size;
 
     /** Last location in memory that an instruction word was loaded from.
      *
@@ -546,6 +551,9 @@ struct litton_state_s
      * intended for debugging.
      */
     litton_drum_loc_t PC;
+
+    /** Entry point to the system at reset time. */
+    litton_drum_loc_t entry_point;
 
     /** Contents of the "Block Interchange Loop" */
     litton_word_t block_interchange_loop[LITTON_DRUM_RESERVED_SECTORS];
@@ -555,6 +563,15 @@ struct litton_state_s
 
     /** List of devices that are attached to the computer */
     litton_device_t *devices;
+
+    /** Counter for how many instructions since a jump.
+     *
+     * If a word in memory has invalid data, such as all no-op bytes,
+     * it could spin non-stop forever on the same word.  This counter
+     * allows up to break out of the loop if we haven't seen a jump
+     * in a while.
+     */
+    unsigned spin_counter;
 };
 
 /**
@@ -564,7 +581,8 @@ typedef enum
 {
     LITTON_STEP_OK,         /**< Step was OK, execution continues */
     LITTON_STEP_HALT,       /**< Processor has halted */
-    LITTON_STEP_ILLEGAL     /**< Illegal instruction */
+    LITTON_STEP_ILLEGAL,    /**< Illegal instruction */
+    LITTON_STEP_SPINNING    /**< Spinning out of control */
 
 } litton_step_result_t;
 
@@ -572,9 +590,24 @@ typedef enum
  * @brief Initialize the state of the Litton computer.
  *
  * @param[out] state The state to be initialized.
+ */
+void litton_init(litton_state_t *state);
+
+/**
+ * @brief Set the size of the drum.
+ *
+ * @param[out] state The state of the computer.
  * @param[in] size Size of the drum memory in words; 2048 or 4096.
  */
-void litton_init(litton_state_t *state, litton_drum_loc_t size);
+void litton_set_drum_size(litton_state_t *state, litton_drum_loc_t size);
+
+/**
+ * @brief Sets a new entry point for the drum image.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] entry The entry point for the drum image.
+ */
+void litton_set_entry_point(litton_state_t *state, litton_drum_loc_t entry);
 
 /**
  * @brief Reset the Litton computer.
