@@ -34,6 +34,8 @@ static void usage(const char *progname)
     fprintf(stderr, "        Set the entry point to the drum image, in hexadecimal.\n");
     fprintf(stderr, "    -s SIZE\n");
     fprintf(stderr, "        Set the size of the drum, in decimal; default 4096.\n");
+    fprintf(stderr, "    -v\n");
+    fprintf(stderr, "        Verbose disassembly of instructions as they are executed.\n");
 }
 
 static litton_state_t machine;
@@ -50,11 +52,13 @@ int main(int argc, char *argv[])
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "e:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "e:s:v")) != -1) {
         if (opt == 'e') {
             litton_set_entry_point(&machine, strtoul(optarg, NULL, 16));
         } else if (opt == 's') {
             litton_set_drum_size(&machine, strtoul(optarg, NULL, 0));
+        } else if (opt == 'v') {
+            machine.disassemble = 1;
         } else {
             usage(progname);
             litton_free(&machine);

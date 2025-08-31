@@ -23,6 +23,7 @@
 #ifndef LITTON_H
 #define LITTON_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -268,6 +269,85 @@ typedef uint16_t litton_drum_loc_t;
 #define LOP_AC      0xD000  /** Add conditional, operand M */
 #define LOP_JU      0xE000  /** Jump unconditional, operand M */
 #define LOP_JC      0xF000  /** Jump conditional, operand M */
+
+/**
+ * @brief Types of instruction operands.
+ */
+typedef enum
+{
+    LITTON_OPERAND_NONE,        /**< No operand */
+    LITTON_OPERAND_MEMORY,      /**< 12-bit memory address */
+    LITTON_OPERAND_SCRATCHPAD,  /**< 3-bit scratchpad address */
+    LITTON_OPERAND_SHIFT,       /**< 7-bit shift count */
+    LITTON_OPERAND_DEVICE,      /**< 8-bit device select code */
+    LITTON_OPERAND_CHAR,        /**< 8-bit character code */
+    LITTON_OPERAND_HALT         /**< 3-bit halt code */
+
+} litton_operand_type_t;
+
+/**
+ * @brief Information about an opcode for assemblers and disassemblers.
+ */
+typedef struct
+{
+    /** Name of the opcode, in upper case */
+    const char *name;
+
+    /** Opcode number.  High byte is zero for 8-bit opcodes. */
+    uint16_t opcode;
+
+    /** Operand mask; bits other than these are the opcode */
+    uint16_t operand_mask;
+
+    /** Type of operand for the opcode */
+    litton_operand_type_t operand_type;
+
+} litton_opcode_info_t;
+
+/**
+ * @brief List of all known opcodes, terminated by an entry with a NULL name.
+ */
+extern litton_opcode_info_t const litton_opcodes[];
+
+/**
+ * @brief Gets the information about an opcode given the instruction number.
+ *
+ * @param[in] insn The instruction.
+ *
+ * @return A pointer to the opcode information or NULL if @a insn does
+ * not correspond to a known opcode.
+ */
+const litton_opcode_info_t *litton_opcode_by_number(uint16_t insn);
+
+/**
+ * @brief Gets the information about an opcode given its name.
+ *
+ * @param[in] name The name.
+ *
+ * @return A pointer to the opcode information or NULL if @a name does
+ * not correspond to a known opcode name.
+ */
+const litton_opcode_info_t *litton_opcode_by_name(const char *name);
+
+/**
+ * @brief Determine if two names are identical, ignoring case.
+ *
+ * @param[in] name1 The first name.
+ * @param[in] name2 The second name.
+ *
+ * @return Non-zero if the names are identical, zero if not.
+ */
+int litton_name_match(const char *name1, const char *name2);
+
+/**
+ * @brief Disassemble an instruction to a stdio stream.
+ *
+ * @param[in,out] out The stdio stream to write to.
+ * @param[in] addr Address of where the instruction was fetched from.
+ * @param[in] insn Instruction word.
+ */
+void litton_disassemble_instruction
+    (FILE *out, litton_drum_loc_t addr, uint16_t insn);
 
 /*----------------------------------------------------------------------*/
 
@@ -586,6 +666,9 @@ struct litton_state_s
      * in a while.
      */
     unsigned spin_counter;
+
+    /** Non-zero to disasemble instructions to stderr as they are executed */
+    int disassemble;
 };
 
 /**

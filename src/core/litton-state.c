@@ -85,7 +85,9 @@ void litton_reset(litton_state_t *state)
     litton_drum_loc_t entry = state->entry_point;
     state->CR = 0xE0 | (entry >> 8);
     state->I = ((litton_word_t)(entry & 0xFFU)) << 32;
-    state->PC = entry;
+
+    /* Fake the jump to the entry point as starting at 0xFFF */
+    state->PC = LITTON_DRUM_MAX_SIZE - 1;
 }
 
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)

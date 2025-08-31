@@ -21,7 +21,6 @@
  */
 
 #include <litton/litton.h>
-#include <stdio.h>
 
 static uint16_t litton_available_scratchpad(litton_state_t *state)
 {
@@ -568,6 +567,9 @@ litton_step_result_t litton_step(litton_state_t *state)
 
     if (state->CR < 0x40) {
         /* Single-byte instruction */
+        if (state->disassemble) {
+            litton_disassemble_instruction(stderr, state->PC, state->CR);
+        }
         switch (state->CR) {
         case LOP_HH | 0x00: case LOP_HH | 0x01:
         case LOP_HH | 0x02: case LOP_HH | 0x03:
@@ -715,6 +717,9 @@ litton_step_result_t litton_step(litton_state_t *state)
         /* Double-byte instruction.  Decide what to do based on the
          * high 4 bits of the command register. */
         insn = (uint16_t)((state->CR << 8) | (state->I >> 32));
+        if (state->disassemble) {
+            litton_disassemble_instruction(stderr, state->PC, insn);
+        }
         addr = insn & 0x0FFF;
         switch (state->CR & 0xF0) {
         case 0x40:

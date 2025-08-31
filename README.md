@@ -20,6 +20,10 @@ Then you can run the emulator on the examples:
 
     litton-run examples/hello_world.drum
 
+Use the `-v` (verbose) option to disassemble instructions as they are executed:
+
+    litton-run -v examples/hello_world.drum
+
 ## Documentation
 
 The following documents are from Litton and explain different aspects
