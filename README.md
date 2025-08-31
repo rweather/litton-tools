@@ -18,7 +18,7 @@ cmake and gcc installed to build it.
 
 Then you can run the emulator on the examples:
 
-    litton-run examples/hello.drum
+    litton-run examples/hello_world.drum
 
 ## Documentation
 
