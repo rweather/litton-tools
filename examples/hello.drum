@@ -3,6 +3,7 @@
 #Drum-Size: 2048
 #Entry-Point: 300
 #Console-Character-Set: ASCII
+#Console-Device: 11
 300:017E110A0A
 301:017848F302
 302:027865F303
