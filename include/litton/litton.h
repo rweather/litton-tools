@@ -340,6 +340,14 @@ struct litton_device_s
     litton_charset_t charset;
 
     /**
+     * @brief Closes the device prior to it being freed.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device that is being closed.
+     */
+    void (*close)(litton_state_t *state, litton_device_t *device);
+
+    /**
      * @brief Selects this device.
      *
      * @param[in,out] state The state of the computer.
@@ -413,17 +421,13 @@ struct litton_device_s
  * @brief Adds a device to the computer.
  *
  * @param[in,out] state The state of the computer.
- * @param[in] device Points to the device to add.
+ * @param[in] device Points to the device to add, which must have been
+ * allocated using malloc().
+ *
+ * The @a state takes ownership of the device and frees it when
+ * litton_free() is called.
  */
 void litton_add_device(litton_state_t *state, litton_device_t *device);
-
-/**
- * @brief Removes a device from the computer.
- *
- * @param[in,out] state The state of the computer.
- * @param[in] device Points to the device to remove.
- */
-void litton_remove_device(litton_state_t *state, litton_device_t *device);
 
 /**
  * @brief Selects a specific device (or devices) to be the current one.

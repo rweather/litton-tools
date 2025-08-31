@@ -21,6 +21,7 @@
  */
 
 #include <litton/litton.h>
+#include <stdlib.h>
 #include <string.h>
 
 void litton_init(litton_state_t *state)
@@ -40,6 +41,19 @@ void litton_init(litton_state_t *state)
 
 void litton_free(litton_state_t *state)
 {
+    /* Close all of the attached devices */
+    litton_device_t *device = state->devices;
+    litton_device_t *next_device;
+    while (device != 0) {
+        next_device = device->next;
+        if (device->close != 0) {
+            (*(device->close))(state, device);
+        }
+        free(device);
+        device = next_device;
+    }
+
+    /* Clear the machine state */
     memset(state, 0, sizeof(litton_state_t));
 }
 

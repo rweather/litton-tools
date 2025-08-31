@@ -42,24 +42,6 @@ static void litton_deselect_device
     }
 }
 
-void litton_remove_device(litton_state_t *state, litton_device_t *device)
-{
-    litton_device_t *current;
-    litton_device_t **prev;
-    litton_deselect_device(state, device);
-    current = state->devices;
-    prev = &(state->devices);
-    while (current != 0) {
-        if (current == device) {
-            *prev = current->next;
-            device->next = 0;
-            return;
-        }
-        prev = &(current->next);
-        current = current->next;
-    }
-}
-
 static int litton_device_match
     (const litton_device_t *device, int device_select_code)
 {
