@@ -37,9 +37,19 @@ extern "C" {
 typedef uint64_t litton_word_t;
 
 /**
+ * @brief Number of bits in a Litton word.
+ */
+#define LITTON_WORD_BITS 40
+
+/**
  * @brief Mask to convert a 64-bit value back into 40-bit.
  */
 #define LITTON_WORD_MASK 0x000000FFFFFFFFFFULL
+
+/**
+ * @brief Mask for the MSB of a 40-bit word.
+ */
+#define LITTON_WORD_MSB 0x0000008000000000ULL
 
 /*----------------------------------------------------------------------*/
 
@@ -141,7 +151,7 @@ typedef uint16_t litton_drum_loc_t;
  * in the high order bits of I.
  *
  * Program words are loaded into the 40-bit instruction register (I).
- * They are shifted 8 bits at a time into the command register (CR)
+ * They are rotated 8 bits at a time into the command register (CR)
  * for execution.  Once all commands in the instruction register have been
  * used up, a jump is executed to the next word to be executed.
  *
@@ -246,13 +256,250 @@ typedef uint16_t litton_drum_loc_t;
 #define LOP_OI      0x7800  /** Output immediate, operand C */
 #define LOP_IST     0x7C00  /** Immediate select on test, operand D */
 #define LOP_IS      0x7E00  /** Immediate select, operand D */
-#define LOP_CA      0x8000  /** Clear and add / load immediate, operand M */
+#define LOP_CA      0x8000  /** Clear and add / load, operand M */
 #define LOP_AD      0x9000  /** Add, operand M */
 #define LOP_ST      0xB000  /** Store, operand M */
 #define LOP_JM      0xC000  /** Jump mark, operand M */
 #define LOP_AC      0xD000  /** Add conditional, operand M */
 #define LOP_JU      0xE000  /** Jump unconditional, operand M */
 #define LOP_JC      0xF000  /** Jump conditional, operand M */
+
+/*----------------------------------------------------------------------*/
+
+/*
+ * Management of I/O devices.
+ *
+ * Reference: Litton 1600 Technical Reference Manual, section 3.6.
+ *
+ * Devices are selected with an 8-bit code consisting of a 4-bit
+ * group mask and a 4-bit device number mask.
+ *
+ *      7 6 5 4 3 2 1 0
+ *      | | | | | | | |
+ *      | | | | | | | +---- Device 1
+ *      | | | | | | +------ Device 2
+ *      | | | | | +-------- Device 3
+ *      | | | | +---------- Device 4
+ *      | | | +------------ Group 4
+ *      | | +-------------- Group 3
+ *      | +---------------- Group 2
+ *      +------------------ Group 1
+ */
+
+/* Forward references */
+typedef struct litton_device_s litton_device_t;
+typedef struct litton_state_s litton_state_t;
+
+/**
+ * @brief Type of parity that is present an input or output byte.
+ */
+typedef enum
+{
+    LITTON_PARITY_NONE,     /**< No parity */
+    LITTON_PARITY_ODD,      /**< Odd parity */
+    LITTON_PARITY_EVEN      /**< Even parity */
+
+} litton_parity_t;
+
+/**
+ * @brief Information about an I/O device.
+ */
+struct litton_device_s
+{
+    /** Next device that is registered with the machine */
+    litton_device_t *next;
+
+    /** Group that the device belongs to: 1 to 4 */
+    uint8_t group;
+
+    /** Number of the device within the group: 1 to 4 */
+    uint8_t number;
+
+    /** Non-zero if this device supports input */
+    uint8_t supports_input;
+
+    /** Non-zero if this device supports output */
+    uint8_t supports_output;
+
+    /** Non-zero when this device is selected */
+    uint8_t selected;
+
+    /**
+     * @brief Selects this device.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device that was selected.
+     */
+    void (*select)(litton_state_t *state, litton_device_t *device);
+
+    /**
+     * @brief Deselects this device.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device that was deselected.
+     */
+    void (*deselect)(litton_state_t *state, litton_device_t *device);
+
+    /**
+     * @brief Determine if this device's output side is busy.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device to check.
+     *
+     * @return Non-zero if the device is busy, or zero if the device is ready.
+     */
+    int (*is_busy)(litton_state_t *state, litton_device_t *device);
+
+    /**
+     * @brief Outputs a byte value to this device.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device to output to.
+     * @param[in] value The byte value to output.
+     * @param[in] parity Indicates the type of parity on the value.
+     *
+     * This function should only be called if the device is not busy.
+     *
+     * It is assumed that parity has already been added to @a value.
+     * The @a parity argument informs the device implementation as to the
+     * parity on the value if it needs to be stripped off again.
+     */
+    void (*output)(litton_state_t *state, litton_device_t *device,
+                   uint8_t value, litton_parity_t parity);
+
+    /**
+     * @brief Inputs a byte value from this device.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device to input from.
+     * @param[out] value Returns the byte value that was input.
+     * @param[in] parity Indicates the expected parity on the input.
+     *
+     * @return Non-zero if a value was produced, or zero if input is not ready.
+     */
+    int (*input)(litton_state_t *state, litton_device_t *device,
+                 uint8_t *value, litton_parity_t parity);
+
+    /**
+     * @brief Reads the input status byte from this device.
+     *
+     * @param[in,out] state The state of the computer.
+     * @param[in,out] device The device to input from.
+     * @param[out] value Returns the status byte.
+     *
+     * @return Non-zero if a status was produced, or zero if the device
+     * is not ready to produce a status at this time.
+     */
+    int (*status)(litton_state_t *state, litton_device_t *device,
+                  uint8_t *value);
+};
+
+/**
+ * @brief Adds a device to the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] device Points to the device to add.
+ */
+void litton_add_device(litton_state_t *state, litton_device_t *device);
+
+/**
+ * @brief Removes a device from the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] device Points to the device to remove.
+ */
+void litton_remove_device(litton_state_t *state, litton_device_t *device);
+
+/**
+ * @brief Selects a specific device (or devices) to be the current one.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] device_select_code The 8-bit device selection code.
+ *
+ * @return Non-zero if a device was selected or zero if no such device.
+ */
+int litton_select_device(litton_state_t *state, int device_select_code);
+
+/**
+ * @brief Determine if any of the currently-selected output devices are busy.
+ *
+ * @param[in,out] state The state of the computer.
+ *
+ * @return Non-zero if a selected output device is busy; zero if all
+ * seelected output devices are ready.  If there are no selected output
+ * devices, ready is reported.
+ */
+int litton_is_output_busy(litton_state_t *state);
+
+/**
+ * @brief Outputs a byte to the selected device (or devices).
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] value The byte value to output.
+ * @param[in] parity Indicates the type of parity on the value.
+ *
+ * It is assumed that parity has already been added to @a value.
+ * The @a parity argument informs the device implementation as to the
+ * parity on the value if it needs to be stripped off again.
+ */
+void litton_output_to_device
+    (litton_state_t *state, uint8_t value, litton_parity_t parity);
+
+/**
+ * @brief Inputs a byte value from the selected device (or devices).
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in,out] device The device to input from.
+ * @param[out] value Returns the byte value that was input.
+ * @param[in] parity Indicates the expected parity on the input.
+ *
+ * @return Non-zero if a value was produced, or zero if all selected
+ * input devices are busy.
+ *
+ * If there are multiple devices with data available, this will produce a
+ * byte from the first one that is not busy.
+ *
+ * This function does not check the parity.  The @a parity value hints
+ * to the device handler the parity that is expected by the program
+ * in case the parity needs to be synthesised.
+ */
+int litton_input_from_device
+    (litton_state_t *state, uint8_t *value, litton_parity_t parity);
+
+/**
+ * @brief Reads the status of the currently selected input device.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in,out] device The device to input from.
+ * @param[out] status Returns the status of the input device.
+ *
+ * @return Non-zero if a status was produced, or zero if all selected
+ * input devices are busy.
+ *
+ * If there are multiple selected input devices, this will produce a
+ * status byte from the first one that is not busy.
+ */
+int litton_input_device_status(litton_state_t *state, uint8_t *status);
+
+/**
+ * @brief Adds parity to a byte value.
+ *
+ * @param[in] value The value to add parity to.
+ * @param[in] parity The type of parity to add: none, odd, or even.
+ *
+ * @return The parity-adjusted version of @a value.
+ */
+uint8_t litton_add_parity(uint8_t value, litton_parity_t parity);
+
+/**
+ * @brief Remove parity from a byte, leaving the underlying 7-bit value.
+ *
+ * @param[in] value The value to remove parity fromt.
+ * @param[in] parity The type of parity to remove: none, odd, or even.
+ *
+ * @return The parity-removed version of @a value.
+ */
+uint8_t litton_remove_parity(uint8_t value, litton_parity_t parity);
 
 /*----------------------------------------------------------------------*/
 
@@ -265,7 +512,7 @@ typedef uint16_t litton_drum_loc_t;
 /**
  * @brief Full state of the Litton machine.
  */
-typedef struct
+struct litton_state_s
 {
     /* Section 1.5, "Registers" */
 
@@ -290,10 +537,25 @@ typedef struct
     /** Contents of drum memory */
     litton_word_t drum[LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS];
 
-    /** Number of instruction cycles that have been executed so far */
-    uint64_t cycles;
+    /** Size of memory.  Some models have 4096 words, others have 2048 */
+    litton_drum_loc_t memory_size;
 
-} litton_state_t;
+    /** Last location in memory that an instruction word was loaded from.
+     *
+     * Technically the Litton does not have a program counter.  This is
+     * intended for debugging.
+     */
+    litton_drum_loc_t PC;
+
+    /** Contents of the "Block Interchange Loop" */
+    litton_word_t block_interchange_loop[LITTON_DRUM_RESERVED_SECTORS];
+
+    /** Register display */
+    uint8_t register_display;
+
+    /** List of devices that are attached to the computer */
+    litton_device_t *devices;
+};
 
 /**
  * @brief Result of stepping a single instruction.
@@ -301,7 +563,8 @@ typedef struct
 typedef enum
 {
     LITTON_STEP_OK,         /**< Step was OK, execution continues */
-    LITTON_STEP_HALT        /**< Processor has halted */
+    LITTON_STEP_HALT,       /**< Processor has halted */
+    LITTON_STEP_ILLEGAL     /**< Illegal instruction */
 
 } litton_step_result_t;
 
@@ -309,20 +572,45 @@ typedef enum
  * @brief Initialize the state of the Litton computer.
  *
  * @param[out] state The state to be initialized.
+ * @param[in] size Size of the drum memory in words; 2048 or 4096.
  */
-void litton_state_init(litton_state_t *state);
+void litton_init(litton_state_t *state, litton_drum_loc_t size);
 
 /**
  * @brief Reset the Litton computer.
  *
- * @param[out] state The state of the computer.
+ * @param[in,out] state The state of the computer.
  */
-void litton_state_reset(litton_state_t *state);
+void litton_reset(litton_state_t *state);
 
 /**
  * @brief Step a single instruction.
+ *
+ * @param[in,out] state The state of the computer.
+ *
+ * @return LITTON_STEP_OK, LITTON_STEP_HALT, ...
  */
-litton_step_result_t litton_state_step(litton_state_t *state);
+litton_step_result_t litton_step(litton_state_t *state);
+
+/**
+ * @brief Get the value of a scratchpad register.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] S Scratchpad register number, 0 to 7.
+ *
+ * @return The value of scratchpad register S.
+ */
+litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S);
+
+/**
+ * @brief Set the value of a scratchpad register.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] S Scratchpad register number, 0 to 7.
+ * @param[in] value The value to set into the scratchpad register.
+ */
+void litton_set_scratchpad
+    (litton_state_t *state, uint8_t S, litton_word_t value);
 
 #ifdef __cplusplus
 }
