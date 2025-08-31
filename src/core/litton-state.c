@@ -38,6 +38,11 @@ void litton_init(litton_state_t *state)
     litton_reset(state);
 }
 
+void litton_free(litton_state_t *state)
+{
+    memset(state, 0, sizeof(litton_state_t));
+}
+
 void litton_set_drum_size(litton_state_t *state, litton_drum_loc_t size)
 {
     /* Range-check the size, just in case */

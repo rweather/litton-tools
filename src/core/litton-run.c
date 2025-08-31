@@ -21,6 +21,7 @@
  */
 
 #include <litton/litton.h>
+#include <stdio.h>
 
 static uint16_t litton_available_scratchpad(litton_state_t *state)
 {

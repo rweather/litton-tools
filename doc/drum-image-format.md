@@ -43,7 +43,6 @@ provided separately to the emulator.
 output in the program.  This is used by the emulator to mount the correct
 I/O devices for the program.  Defaults to "ASCII".
 * `Console-Device` - Device select code for the console device, in hexadecimal.
-For example, "11" means "Group 1, Device 1".
 
 The names of the metadata fields are case-sensitive.  Other metadata fields
 may be defined in future, especially for other devices like printers and

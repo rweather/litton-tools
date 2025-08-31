@@ -57,16 +57,21 @@ int main(int argc, char *argv[])
             litton_set_drum_size(&machine, strtoul(optarg, NULL, 0));
         } else {
             usage(progname);
+            litton_free(&machine);
             return 1;
         }
     }
     if (optind >= argc) {
         usage(progname);
+        litton_free(&machine);
         return 1;
     }
     drum_image = argv[optind];
 
     /* Load the drum image into memory */
+    if (!litton_load_drum(&machine, drum_image)) {
+        litton_free(&machine);
+    }
 
     /* Reset the machine */
     litton_reset(&machine);
@@ -99,5 +104,6 @@ int main(int argc, char *argv[])
         exit_status = 1;
         break;
     }
+    litton_free(&machine);
     return exit_status;
 }

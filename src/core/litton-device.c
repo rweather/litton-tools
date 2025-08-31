@@ -21,6 +21,8 @@
  */
 
 #include <litton/litton.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 void litton_add_device(litton_state_t *state, litton_device_t *device)
 {
@@ -61,12 +63,7 @@ void litton_remove_device(litton_state_t *state, litton_device_t *device)
 static int litton_device_match
     (const litton_device_t *device, int device_select_code)
 {
-    if ((device_select_code & (0x0100 >> device->group)) != 0) {
-        if ((device_select_code & (0x0001 << (device->number - 1))) != 0) {
-            return 1;
-        }
-    }
-    return 0;
+    return device->id != 0 && (device_select_code & device->id) == device->id;
 }
 
 int litton_select_device(litton_state_t *state, int device_select_code)
@@ -203,4 +200,65 @@ uint8_t litton_remove_parity(uint8_t value, litton_parity_t parity)
     } else {
         return value & 0x7F;
     }
+}
+
+static void litton_console_output
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t value, litton_parity_t parity)
+{
+    int ch;
+    (void)state;
+    value = litton_remove_parity(value, parity);
+    ch = litton_char_from_charset(value, device->charset);
+    if (ch != -1) {
+        putc(ch, stdout);
+    }
+}
+
+void litton_add_console
+    (litton_state_t *state, uint8_t id, litton_charset_t charset)
+{
+    litton_device_t *device = calloc(1, sizeof(litton_device_t));
+    device->id = id;
+    device->supports_input = 0; /* TODO: Console input */
+    device->supports_output = 1;
+    device->charset = charset;
+    device->output = litton_console_output;
+    litton_add_device(state, device);
+}
+
+void litton_add_input_tape
+    (litton_state_t *state, uint8_t id, litton_charset_t charset,
+     const char *filename)
+{
+    // TODO
+    (void)state;
+    (void)id;
+    (void)charset;
+    (void)filename;
+}
+
+void litton_add_output_tape
+    (litton_state_t *state, uint8_t id, litton_charset_t charset,
+     const char *filename)
+{
+    // TODO
+    (void)state;
+    (void)id;
+    (void)charset;
+    (void)filename;
+}
+
+int litton_char_to_charset(int ch, litton_charset_t charset)
+{
+    // TODO: Non-ASCII character sets.
+    (void)charset;
+    return ch;
+}
+
+int litton_char_from_charset(int ch, litton_charset_t charset)
+{
+    // TODO: Non-ASCII character sets.
+    (void)charset;
+    return ch;
 }

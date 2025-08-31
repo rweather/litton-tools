@@ -307,6 +307,16 @@ typedef enum
 } litton_parity_t;
 
 /**
+ * @brief Character sets for text based input and output.
+ */
+typedef enum
+{
+    LITTON_CHARSET_ASCII,   /**< Plain ASCII */
+    LITTON_CHARSET_EBS315   /**< Keyboard charset from EBS315 Operator Manual */
+
+} litton_charset_t;
+
+/**
  * @brief Information about an I/O device.
  */
 struct litton_device_s
@@ -314,11 +324,8 @@ struct litton_device_s
     /** Next device that is registered with the machine */
     litton_device_t *next;
 
-    /** Group that the device belongs to: 1 to 4 */
-    uint8_t group;
-
-    /** Number of the device within the group: 1 to 4 */
-    uint8_t number;
+    /** Device selection identifier */
+    uint8_t id;
 
     /** Non-zero if this device supports input */
     uint8_t supports_input;
@@ -328,6 +335,9 @@ struct litton_device_s
 
     /** Non-zero when this device is selected */
     uint8_t selected;
+
+    /** Character set for this device */
+    litton_charset_t charset;
 
     /**
      * @brief Selects this device.
@@ -594,9 +604,16 @@ typedef enum
 void litton_init(litton_state_t *state);
 
 /**
+ * @brief Frees the memory involved with the state of a Litton computer.
+ *
+ * @param[in] state The state to be freed.
+ */
+void litton_free(litton_state_t *state);
+
+/**
  * @brief Set the size of the drum.
  *
- * @param[out] state The state of the computer.
+ * @param[in,out] state The state of the computer.
  * @param[in] size Size of the drum memory in words; 2048 or 4096.
  */
 void litton_set_drum_size(litton_state_t *state, litton_drum_loc_t size);
@@ -644,6 +661,89 @@ litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S);
  */
 void litton_set_scratchpad
     (litton_state_t *state, uint8_t S, litton_word_t value);
+
+/**
+ * @brief Loads the contents of a drum image.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] filename The name of the drum image file to load.
+ *
+ * @return Non-zero if the drum image was loaded, zero if there is
+ * something wrong with the format of the drum image.
+ */
+int litton_load_drum(litton_state_t *state, const char *filename);
+
+/*----------------------------------------------------------------------*/
+
+/*
+ * Handlers for various kinds of input and output devices.
+ */
+
+/**
+ * @brief Adds a console device to the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the console.
+ * @param[in] charset The character set for the console.
+ *
+ * The program reads and writes characters in the nominated character set.
+ * The console driver automatically converts to and from ASCII.
+ */
+void litton_add_console
+    (litton_state_t *state, uint8_t id, litton_charset_t charset);
+
+/**
+ * @brief Adds an input tape to the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the input tape.
+ * @param[in] charset The character set for the data on the tape.
+ * @param[in] filename The name of the file to pretend to be the input tape.
+ *
+ * The tape data in the file is assumed to be in ASCII.  ASCII will be
+ * converted into the nominated character set as the tape is read.
+ */
+void litton_add_input_tape
+    (litton_state_t *state, uint8_t id, litton_charset_t charset,
+     const char *filename);
+
+/**
+ * @brief Adds an output tape to the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the output tape.
+ * @param[in] charset The character set for the data on the tape.
+ * @param[in] filename The name of the file to pretend to be the output tape.
+ *
+ * The data written to the tape by the program is assumed to be in the
+ * nominated character set.  It will be converted into ASCII before being
+ * written to the file.
+ */
+void litton_add_output_tape
+    (litton_state_t *state, uint8_t id, litton_charset_t charset,
+     const char *filename);
+
+/**
+ * @brief Converts an ASCII character into a specific character set.
+ *
+ * @param[in] ch The character to convert.
+ * @param[in] charset The character set to convert into.
+ *
+ * @return The converted version of @a ch, or -1 if the character does
+ * not have a valid mapping.
+ */
+int litton_char_to_charset(int ch, litton_charset_t charset);
+
+/**
+ * @brief Converts an ASCII character from a specific character set.
+ *
+ * @param[in] ch The character to convert.
+ * @param[in] charset The character set to convert from.
+ *
+ * @return The ASCII version of @a ch, or -1 if the character does
+ * not have a valid mapping.
+ */
+int litton_char_from_charset(int ch, litton_charset_t charset);
 
 #ifdef __cplusplus
 }

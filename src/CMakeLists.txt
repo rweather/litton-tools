@@ -2,6 +2,7 @@
 add_executable(litton-run
     emulator/main.c
     core/litton-device.c
+    core/litton-drum.c
     core/litton-run.c
     core/litton-state.c
 )
