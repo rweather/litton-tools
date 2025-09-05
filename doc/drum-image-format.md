@@ -19,9 +19,9 @@ example in this repository:
     #Title: Hello, World!
     #Drum-Size: 2048
     #Entry-Point: 300
-    #Console-Character-Set: ASCII
-    #Console-Device: 11
-    300:017E110A0A
+    #Printer-Character-Set: ASCII
+    #Printer-Device: 11
+    300:007C11F301
     301:017848F302
     302:027865F303
     303:03786CF304
@@ -39,14 +39,19 @@ defaults to the maximum of 4096 if not specified.
 * `Entry-Point` - Hexadecimal address of the instruction to start executing
 the image at.  If the entry point is not specified, then it needs to be
 provided separately to the emulator.
-* `Console-Character-Set` - Expected character set for console input and
-output in the program.  This is used by the emulator to mount the correct
-I/O devices for the program.  Defaults to "ASCII".
-* `Console-Device` - Device select code for the console device, in hexadecimal.
+* `Keyboard-Character-Set` - Expected character set for keyboard input.
+This is used by the emulator to mount the correct keyboard device for the
+program.  Defaults to "ASCII".
+* `Keyboard-Device` - Device select code for the keyboard device,
+in hexadecimal.
+* `Printer-Character-Set` - Expected character set for printer output
+in the program.  This is used by the emulator to mount the correct
+printer device for the program.  Defaults to "ASCII".
+* `Printer-Device` - Device select code for the printer device, in hexadecimal.
 
 The names of the metadata fields are case-sensitive.  Other metadata fields
-may be defined in future, especially for other devices like printers and
-paper tape readers/punches.
+may be defined in future, especially for other devices like paper tape
+readers/punches.
 
 ## Data
 
@@ -68,4 +73,5 @@ Blank lines in the file are ignored.
 The following character sets are currently supported:
 
 * ASCII - Self-explantory.
+* UASCII - Uppercase-only ASCII.
 * EBS315 - Keyboard character set from section B.4 of the [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf).

@@ -322,22 +322,25 @@ const litton_opcode_info_t *litton_opcode_by_number(uint16_t insn);
 /**
  * @brief Gets the information about an opcode given its name.
  *
- * @param[in] name The name.
+ * @param[in] name Points to the name.
+ * @param[in] name_len Length of the name.
  *
  * @return A pointer to the opcode information or NULL if @a name does
  * not correspond to a known opcode name.
  */
-const litton_opcode_info_t *litton_opcode_by_name(const char *name);
+const litton_opcode_info_t *litton_opcode_by_name
+    (const char *name, size_t name_len);
 
 /**
  * @brief Determine if two names are identical, ignoring case.
  *
  * @param[in] name1 The first name.
  * @param[in] name2 The second name.
+ * @param[in] name2_len The length of the second name.
  *
  * @return Non-zero if the names are identical, zero if not.
  */
-int litton_name_match(const char *name1, const char *name2);
+int litton_name_match(const char *name1, const char *name2, size_t name2_len);
 
 /**
  * @brief Disassemble an instruction to a stdio stream.
@@ -392,6 +395,7 @@ typedef enum
 typedef enum
 {
     LITTON_CHARSET_ASCII,   /**< Plain ASCII */
+    LITTON_CHARSET_UASCII,  /**< Uppercase-only ASCII */
     LITTON_CHARSET_EBS315   /**< Keyboard charset from EBS315 Operator Manual */
 
 } litton_charset_t;
@@ -767,16 +771,23 @@ int litton_load_drum(litton_state_t *state, const char *filename);
  */
 
 /**
- * @brief Adds a console device to the computer.
+ * @brief Adds a printer device to the computer.
  *
  * @param[in,out] state The state of the computer.
- * @param[in] id The device identifier for the console.
- * @param[in] charset The character set for the console.
- *
- * The program reads and writes characters in the nominated character set.
- * The console driver automatically converts to and from ASCII.
+ * @param[in] id The device identifier for the printer.
+ * @param[in] charset The character set for the printer.
  */
-void litton_add_console
+void litton_add_printer
+    (litton_state_t *state, uint8_t id, litton_charset_t charset);
+
+/**
+ * @brief Adds a keyboard device to the computer.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the keyboard.
+ * @param[in] charset The character set for the keyboard.
+ */
+void litton_add_keyboard
     (litton_state_t *state, uint8_t id, litton_charset_t charset);
 
 /**
@@ -831,6 +842,27 @@ int litton_char_to_charset(int ch, litton_charset_t charset);
  * not have a valid mapping.
  */
 int litton_char_from_charset(int ch, litton_charset_t charset);
+
+/**
+ * @brief Gets a character set code from its name.
+ *
+ * @param[out] charset Returns the character set.
+ * @param[in] name Points to the name.
+ * @param[in] name_len Length of the name.
+ *
+ * @return Non-zero if the name is valid, zero if not.
+ */
+int litton_charset_from_name
+    (litton_charset_t *charset, const char *name, size_t name_len);
+
+/**
+ * @brief Get the name of a character set.
+ *
+ * @param[in] charset The character set.
+ *
+ * @return A pointer to the character set's name.
+ */
+const char *litton_charset_to_name(litton_charset_t charset);
 
 #ifdef __cplusplus
 }

@@ -609,7 +609,6 @@ litton_step_result_t litton_step(litton_state_t *state)
         case LOP_JA:
             /* Jump to the contents of the accumulator */
             state->I = state->A;
-            /* TODO: What to do about PC? */
             break;
 
         case LOP_BI:
@@ -756,19 +755,22 @@ litton_step_result_t litton_step(litton_state_t *state)
             break;
 
         case 0xC0:
-            /* Jump mark command.  Copy the current instruction into A
-             * and the instruction at the memory address into I.
-             * This is essentially a "jump to subroutine" instruction that
-             * saves the instruction at the return point in A and then
-             * jumps to the destination address. */
+            /* Jump mark command.  This is a type of "jump to subroutine" that
+             * saves the return point in A.  When the program later performs a
+             * "JA" to A, we will come back to just after the "JM" point. */
+
+            /* Convert the instruction into an unconditional jump for
+             * when we rotate it back in again later. */
+            state->CR = 0xE0 | (state->CR & 0x0F);
+
+            /* Save the current instruction in A */
             state->A = state->I;
+            state->A &= LITTON_WORD_MASK;
+
+            /* Copy the destination instruction into I */
             state->I = state->drum[addr];
             state->PC = addr;
             state->spin_counter = 0;
-
-            /* Convert the instruction into an unconditional jump
-             * when we rotate it back in again later. */
-            state->CR = 0xE0 | (state->CR & 0x0F);
             break;
 
         case 0xD0:

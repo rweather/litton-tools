@@ -32,7 +32,10 @@ int litton_load_drum(litton_state_t *state, const char *filename)
     char buffer[BUFSIZ];
     size_t len;
     unsigned long line;
-    unsigned long console_device = 0;
+    unsigned long printer_device = 0;
+    litton_charset_t printer_charset = LITTON_CHARSET_ASCII;
+    unsigned long keyboard_device = 0;
+    litton_charset_t keyboard_charset = LITTON_CHARSET_ASCII;
     int ok = 1;
     if ((file = fopen(filename, "r")) == NULL) {
         perror(filename);
@@ -56,13 +59,35 @@ int litton_load_drum(litton_state_t *state, const char *filename)
             } else if (!strncmp(buffer, "#Entry-Point:", 13)) {
                 litton_set_entry_point
                     (state, strtoul(buffer + 13, NULL, 16));
-            } else if (!strncmp(buffer, "#Console-Character-Set:", 23)) {
-                // TODO
-            } else if (!strncmp(buffer, "#Console-Device:", 16)) {
-                console_device = strtoul(buffer + 16, NULL, 16) & 0xFF;
-                if ((console_device & 0xF0) == 0 ||
-                        (console_device & 0x0F) == 0) {
-                    fprintf(stderr, "%s:%lu: invalid device identifier\n",
+            } else if (!strncmp(buffer, "#Printer-Character-Set: ", 24)) {
+                if (!litton_charset_from_name
+                        (&printer_charset, buffer + 24, strlen(buffer + 24))) {
+                    fprintf(stderr, "%s:%lu: invalid printer character set\n",
+                            filename, line);
+                    ok = 0;
+                }
+            } else if (!strncmp(buffer, "#Printer-Device:", 16)) {
+                printer_device = strtoul(buffer + 16, NULL, 16);
+                if (printer_device > 0xFF ||
+                        (printer_device & 0xF0) == 0 ||
+                        (printer_device & 0x0F) == 0) {
+                    fprintf(stderr, "%s:%lu: invalid printer device identifier\n",
+                            filename, line);
+                    ok = 0;
+                }
+            } else if (!strncmp(buffer, "#Keyboard-Character-Set: ", 25)) {
+                if (!litton_charset_from_name
+                        (&keyboard_charset, buffer + 25, strlen(buffer + 25))) {
+                    fprintf(stderr, "%s:%lu: invalid keyboard character set\n",
+                            filename, line);
+                    ok = 0;
+                }
+            } else if (!strncmp(buffer, "#Keyboard-Device:", 17)) {
+                keyboard_device = strtoul(buffer + 17, NULL, 16);
+                if (keyboard_device > 0xFF ||
+                        (keyboard_device & 0xF0) == 0 ||
+                        (keyboard_device & 0x0F) == 0) {
+                    fprintf(stderr, "%s:%lu: invalid keyboard identifier\n",
                             filename, line);
                     ok = 0;
                 }
@@ -83,10 +108,14 @@ int litton_load_drum(litton_state_t *state, const char *filename)
         }
     }
     fclose(file);
-    if (ok && console_device != 0) {
-        /* Set up the console for the machine as described in the drum image */
-        // TODO: character set.
-        litton_add_console(state, console_device, LITTON_CHARSET_ASCII);
+    if (ok) {
+        /* Set up the keyboard and printer for the machine */
+        if (printer_device != 0) {
+            litton_add_printer(state, printer_device, printer_charset);
+        }
+        if (keyboard_device != 0) {
+            litton_add_keyboard(state, keyboard_device, keyboard_charset);
+        }
     }
     return ok;
 }

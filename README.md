@@ -16,13 +16,25 @@ cmake and gcc installed to build it.
     make
     sudo make install
 
-Then you can run the emulator on the examples:
+## Running
+
+After building and installing the tools, you can run the emulator
+on the examples:
 
     litton-run examples/hello_world.drum
+    litton-run examples/fibonacci.drum
 
 Use the `-v` (verbose) option to disassemble instructions as they are executed:
 
-    litton-run -v examples/hello_world.drum
+    litton-run -v examples/fibonacci.drum
+
+## Assembler
+
+There is a cross-assembler for low-level Litton machine code in
+this repository to make it easier to write new programs for the Litton.
+See the [assembler documentation](doc/assembler-low-level.md)
+for more information.  The programs in the `examples` directory are written
+using this assembler.
 
 ## Documentation
 
@@ -35,6 +47,7 @@ of the machine:
 Documentation for the tools in this repository:
 
 * [Litton Drum Image File Format](doc/drum-image-format.md)
+* [Litton Low-Level Cross Assembler](doc/assembler-low-level.md)
 
 ## TODO
 
@@ -42,7 +55,6 @@ Documentation for the tools in this repository:
 * Input and output punch tape formats.
 * Front panel interface that mimics the actual machine.
 * Disassembler for drum images and paper tapes.
-* Simple assembler for creating new programs.
 * Custom OPUS implementation to get a basic OS for the emulator.
 * Dump the real OPUS and integrate it when possible.
 

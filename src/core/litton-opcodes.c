@@ -110,21 +110,22 @@ const litton_opcode_info_t *litton_opcode_by_number(uint16_t insn)
     return 0;
 }
 
-const litton_opcode_info_t *litton_opcode_by_name(const char *name)
+const litton_opcode_info_t *litton_opcode_by_name
+    (const char *name, size_t name_len)
 {
     const litton_opcode_info_t *info = litton_opcodes;
     for (; info->name; ++info) {
-        if (litton_name_match(info->name, name)) {
+        if (litton_name_match(info->name, name, name_len)) {
             return info;
         }
     }
     return 0;
 }
 
-int litton_name_match(const char *name1, const char *name2)
+int litton_name_match(const char *name1, const char *name2, size_t name2_len)
 {
     int ch1, ch2;
-    while (*name1 != '\0' && *name2 != '\0') {
+    while (*name1 != '\0' && name2_len > 0) {
         ch1 = *name1++;
         if (ch1 >= 'a' && ch1 <= 'z') {
             ch1 = ch1 - 'a' + 'A';
@@ -136,8 +137,13 @@ int litton_name_match(const char *name1, const char *name2)
         if (ch1 != ch2) {
             return 0;
         }
+        --name2_len;
     }
-    return *name1 == *name2;
+    if (*name1 != '\0' || name2_len != 0) {
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 void litton_disassemble_instruction
@@ -163,9 +169,12 @@ void litton_disassemble_instruction
             break;
 
         case LITTON_OPERAND_SCRATCHPAD:
-        case LITTON_OPERAND_SHIFT:
         case LITTON_OPERAND_HALT:
             fprintf(out, "%d", (unsigned)insn);
+            break;
+
+        case LITTON_OPERAND_SHIFT:
+            fprintf(out, "%d", (unsigned)(insn + 1));
             break;
 
         case LITTON_OPERAND_DEVICE:

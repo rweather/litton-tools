@@ -184,7 +184,7 @@ uint8_t litton_remove_parity(uint8_t value, litton_parity_t parity)
     }
 }
 
-static void litton_console_output
+static void litton_printer_output
     (litton_state_t *state, litton_device_t *device,
      uint8_t value, litton_parity_t parity)
 {
@@ -197,15 +197,39 @@ static void litton_console_output
     }
 }
 
-void litton_add_console
+void litton_add_printer
     (litton_state_t *state, uint8_t id, litton_charset_t charset)
 {
     litton_device_t *device = calloc(1, sizeof(litton_device_t));
     device->id = id;
-    device->supports_input = 0; /* TODO: Console input */
+    device->supports_input = 0;
     device->supports_output = 1;
     device->charset = charset;
-    device->output = litton_console_output;
+    device->output = litton_printer_output;
+    litton_add_device(state, device);
+}
+
+static int litton_keyboard_input
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t *value, litton_parity_t parity)
+{
+    // TODO
+    (void)state;
+    (void)device;
+    (void)value;
+    (void)parity;
+    return 0; /* Keyboard input is not ready */
+}
+
+void litton_add_keyboard
+    (litton_state_t *state, uint8_t id, litton_charset_t charset)
+{
+    litton_device_t *device = calloc(1, sizeof(litton_device_t));
+    device->id = id;
+    device->supports_input = 1;
+    device->supports_output = 0;
+    device->charset = charset;
+    device->input = litton_keyboard_input;
     litton_add_device(state, device);
 }
 
@@ -233,14 +257,64 @@ void litton_add_output_tape
 
 int litton_char_to_charset(int ch, litton_charset_t charset)
 {
-    // TODO: Non-ASCII character sets.
-    (void)charset;
+    switch (charset) {
+    case LITTON_CHARSET_ASCII:
+        break;
+
+    case LITTON_CHARSET_UASCII:
+        /* Force the character to uppercase */
+        if (ch >= 'a' && ch <= 'z') {
+            ch = ch - 'a' + 'A';
+        }
+        break;
+
+    case LITTON_CHARSET_EBS315:
+        // TODO: Non-ASCII character sets.
+        ch = -1;
+        break;
+    }
     return ch;
 }
 
 int litton_char_from_charset(int ch, litton_charset_t charset)
 {
-    // TODO: Non-ASCII character sets.
-    (void)charset;
+    switch (charset) {
+    case LITTON_CHARSET_ASCII:
+    case LITTON_CHARSET_UASCII:
+        break;
+
+    case LITTON_CHARSET_EBS315:
+        // TODO: Non-ASCII character sets.
+        ch = -1;
+        break;
+    }
     return ch;
+}
+
+int litton_charset_from_name
+    (litton_charset_t *charset, const char *name, size_t name_len)
+{
+    if (litton_name_match("ASCII", name, name_len)) {
+        *charset = LITTON_CHARSET_ASCII;
+        return 1;
+    }
+    if (litton_name_match("UASCII", name, name_len)) {
+        *charset = LITTON_CHARSET_UASCII;
+        return 1;
+    }
+    if (litton_name_match("EBS315", name, name_len)) {
+        *charset = LITTON_CHARSET_EBS315;
+        return 1;
+    }
+    return 0;
+}
+
+const char *litton_charset_to_name(litton_charset_t charset)
+{
+    switch (charset) {
+    case LITTON_CHARSET_ASCII:  return "ASCII";
+    case LITTON_CHARSET_UASCII: return "UASCII";
+    case LITTON_CHARSET_EBS315: return "EBS315";
+    }
+    return "ASCII"; /* Just in case */
 }
