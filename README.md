@@ -39,35 +39,42 @@ using this assembler.
 ## Disassembler
 
 The `litton-disassembler` tool can disassemble images in the
-[drum image file format](doc/drum-image-format.md).  By default the
-disassembler uses a "pretty" format that tries to show the code as
-straight-line code:
+[drum image file format](doc/drum-image-format.md).  The default format
+tries to make the result look "pretty" by suppressing implicit jumps and
+padding no-ops:
 
     $ litton-disassembler examples/fibonacci.drum
-    700: CL
+    700: 01 09 B0 00 10
+         CL
          ST    0
          SK
-    701: AK
+    701: 02 08 21 E7 02
+         AK
          XC    1
-    702: CA    1
+    702: 03 80 01 B0 07
+         CA    1
          ST    7
-    703: JM    $707
+    703: 04 C7 07 20 0A
+         JM    $707
          XC    0
-    704: AD    1
+    704: 05 90 01 F7 06
+         AD    1
          JC    $706
-    705: XC    1
+    705: 06 21 20 E7 02
+         XC    1
          XC    0
+         JU    $702
     ...
 
-There is also a raw mode that shows the sub-instructions in each word:
+There is also a "raw" mode that shows the sub-instructions in columns:
 
     $ litton-disassembler --raw examples/fibonacci.drum
-    700: | CL          | ST    0     | SK          |             | NEXT: $701
-    701: | AK          | XC    1     | JU    $702  |             | NEXT: $702
-    702: | CA    1     | ST    7     |             |             | NEXT: $703
-    703: | JM    $707  | XC    0     | NN          |             | NEXT: $704
-    704: | AD    1     | JC    $706  |             |             | NEXT: $705
-    705: | XC    1     | XC    0     | JU    $702  |             | NEXT: $706
+    700: 01 09 B0 00 10 | CL        | ST   0    | SK        |           | NEXT:$701
+    701: 02 08 21 E7 02 | AK        | XC   1    | JU   $702 |           | NEXT:$702
+    702: 03 80 01 B0 07 | CA   1    | ST   7    |           |           | NEXT:$703
+    703: 04 C7 07 20 0A | JM   $707 | XC   0    | NN        |           | NEXT:$704
+    704: 05 90 01 F7 06 | AD   1    | JC   $706 |           |           | NEXT:$705
+    705: 06 21 20 E7 02 | XC   1    | XC   0    | JU   $702 |           | NEXT:$706
     ...
 
 ## Documentation
