@@ -194,6 +194,7 @@ static void litton_printer_output
     ch = litton_char_from_charset(value, device->charset);
     if (ch != -1) {
         putc(ch, stdout);
+        fflush(stdout);
     }
 }
 

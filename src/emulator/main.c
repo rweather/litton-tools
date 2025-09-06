@@ -25,11 +25,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <time.h>
 
 static void usage(const char *progname)
 {
     fprintf(stderr, "Usage: %s [options] image.drum\n\n", progname);
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -f\n");
+    fprintf(stderr, "        Fast mode; do not slow down to the original speed.\n");
     fprintf(stderr, "    -e ENTRY\n");
     fprintf(stderr, "        Set the entry point to the drum image, in hexadecimal.\n");
     fprintf(stderr, "    -s SIZE\n");
@@ -45,16 +48,24 @@ int main(int argc, char *argv[])
     const char *progname = argv[0];
     const char *drum_image;
     litton_step_result_t step;
+    int fast_mode = 0;
     int exit_status = 0;
     int opt;
+    uint64_t elapsed_ns;
+    uint64_t checkpoint_counter;
+    struct timespec checkpoint_time;
+    struct timespec sleep_to_time;
+    struct timespec now_time;
 
     /* Initialize the machine */
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "e:s:v")) != -1) {
+    while ((opt = getopt(argc, argv, "fe:s:v")) != -1) {
         if (opt == 'e') {
             litton_set_entry_point(&machine, strtoul(optarg, NULL, 16));
+        } else if (opt == 'f') {
+            fast_mode = 1;
         } else if (opt == 's') {
             litton_set_drum_size(&machine, strtoul(optarg, NULL, 0));
         } else if (opt == 'v') {
@@ -82,8 +93,36 @@ int main(int argc, char *argv[])
     litton_reset(&machine);
 
     /* Keep running the program until halt, illegal instruction, or spinning */
-    while ((step = litton_step(&machine)) == LITTON_STEP_OK) {
-        /* Keep going */
+    checkpoint_counter = machine.cycle_counter;
+    clock_gettime(CLOCK_MONOTONIC, &checkpoint_time);
+    for (;;) {
+        /* Step the next instruction */
+        if ((step = litton_step(&machine)) != LITTON_STEP_OK) {
+            break;
+        }
+
+        /* Simulate the actual speed of the computer */
+        if (!fast_mode) {
+            elapsed_ns = (machine.cycle_counter - checkpoint_counter) * 1000;
+            sleep_to_time = checkpoint_time;
+            sleep_to_time.tv_nsec += elapsed_ns % 1000000000;
+            sleep_to_time.tv_sec += elapsed_ns / 1000000000;
+            while (sleep_to_time.tv_nsec >= 1000000000) {
+                sleep_to_time.tv_nsec -= 1000000000;
+                ++(sleep_to_time.tv_sec);
+            }
+            clock_gettime(CLOCK_MONOTONIC, &now_time);
+            if (now_time.tv_sec > sleep_to_time.tv_sec ||
+                    (now_time.tv_sec == sleep_to_time.tv_sec &&
+                     now_time.tv_nsec >= sleep_to_time.tv_nsec)) {
+                /* Deadline has already passed, so resynchronise on "now" */
+                checkpoint_counter = machine.cycle_counter;
+                checkpoint_time = now_time;
+            } else {
+                clock_nanosleep
+                    (CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_to_time, NULL);
+            }
+        }
     }
     switch (step) {
     case LITTON_STEP_OK:

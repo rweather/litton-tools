@@ -662,11 +662,23 @@ struct litton_state_s
     /** List of devices that are attached to the computer */
     litton_device_t *devices;
 
+    /** Number of cycles that have elapsed.
+     *
+     * Each cycle is one bit time which is approximately one microsecond.
+     */
+    uint64_t cycle_counter;
+
+    /** Cycle counter the last time we did I/O */
+    uint64_t last_io_counter;
+
+    /** Predicted position on the drum */
+    unsigned rotation_predictor;
+
     /** Counter for how many instructions since a jump.
      *
      * If a word in memory has invalid data, such as all no-op bytes,
      * it could spin non-stop forever on the same word.  This counter
-     * allows up to break out of the loop if we haven't seen a jump
+     * allows us to break out of the loop if we haven't seen a jump
      * in a while.
      */
     unsigned spin_counter;

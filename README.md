@@ -28,6 +28,9 @@ Use the `-v` (verbose) option to disassemble instructions as they are executed:
 
     litton-run -v examples/fibonacci.drum
 
+The emulator will attempt to simulate the speed of the original Litton.
+Use the `-f` option (fast mode) to run at the full speed of the host computer.
+
 ## Assembler
 
 There is a cross-assembler for low-level Litton machine code in
