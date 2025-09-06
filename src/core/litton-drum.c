@@ -26,7 +26,8 @@
 #include <string.h>
 #include <ctype.h>
 
-int litton_load_drum(litton_state_t *state, const char *filename)
+int litton_load_drum
+    (litton_state_t *state, const char *filename, uint8_t *use_mask)
 {
     FILE *file;
     char buffer[BUFSIZ];
@@ -40,6 +41,9 @@ int litton_load_drum(litton_state_t *state, const char *filename)
     if ((file = fopen(filename, "r")) == NULL) {
         perror(filename);
         return 0;
+    }
+    if (use_mask) {
+        memset(use_mask, 0, LITTON_DRUM_MAX_SIZE);
     }
     line = 0;
     while (fgets(buffer, sizeof(buffer), file)) {
@@ -104,6 +108,9 @@ int litton_load_drum(litton_state_t *state, const char *filename)
                 addr &= LITTON_DRUM_MAX_SIZE - 1;
                 word &= LITTON_WORD_MASK;
                 state->drum[addr] = word;
+                if (use_mask) {
+                    use_mask[addr] = 1;
+                }
             }
         }
     }

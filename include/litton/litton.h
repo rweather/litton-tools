@@ -758,11 +758,15 @@ void litton_set_scratchpad
  *
  * @param[in,out] state The state of the computer.
  * @param[in] filename The name of the drum image file to load.
+ * @param[out] use_mask Points to a buffer of LITTON_DRUM_MAX_SIZE bytes.
+ * If not NULL, then set each byte to 1 if the drum location was used
+ * by the loaded image, or 0 if not.
  *
  * @return Non-zero if the drum image was loaded, zero if there is
  * something wrong with the format of the drum image.
  */
-int litton_load_drum(litton_state_t *state, const char *filename);
+int litton_load_drum
+    (litton_state_t *state, const char *filename, uint8_t *use_mask);
 
 /*----------------------------------------------------------------------*/
 

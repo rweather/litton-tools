@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     drum_image = argv[optind];
 
     /* Load the drum image into memory */
-    if (!litton_load_drum(&machine, drum_image)) {
+    if (!litton_load_drum(&machine, drum_image, NULL)) {
         litton_free(&machine);
     }
 
