@@ -261,9 +261,20 @@ static void litton_double_decimal_left_shift
 static void litton_double_div_10
     (litton_word_t *word1, litton_word_t *word2)
 {
-    // TODO: Divide an 80-bit number by 10.
-    (void)word1;
-    (void)word2;
+    /* Simple bit-by-bit division of an 80-bit number by 10 */
+    int bit;
+    litton_word_t remainder = 0;
+    for (bit = 0; bit < 80; ++bit) {
+        remainder <<= 1;
+        if (((*word1) & LITTON_WORD_MSB) != 0) {
+            remainder |= 1;
+        }
+        litton_double_times_2(word1, word2);
+        if (remainder >= 10) {
+            remainder -= 10;
+            *word1 |= 1;
+        }
+    }
 }
 
 static void litton_double_decimal_right_shift
