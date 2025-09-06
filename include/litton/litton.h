@@ -673,6 +673,18 @@ struct litton_state_s
 
     /** Non-zero to disasemble instructions to stderr as they are executed */
     int disassemble;
+
+    /** Identifier for the printer device, or 0 if no printer device set */
+    uint8_t printer_id;
+
+    /** Identifier for the printer character set */
+    litton_charset_t printer_charset;
+
+    /** Identifier for the keyboard device, or 0 if no keyboard device set */
+    uint8_t keyboard_id;
+
+    /** Identifier for the keyboard character set */
+    litton_charset_t keyboard_charset;
 };
 
 /**
@@ -773,6 +785,13 @@ int litton_load_drum
 /*
  * Handlers for various kinds of input and output devices.
  */
+
+/**
+ * @brief Creates the default printer and keyboard devices.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_create_default_devices(litton_state_t *state);
 
 /**
  * @brief Adds a printer device to the computer.

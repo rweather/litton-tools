@@ -69,6 +69,8 @@ int litton_load_drum
                     fprintf(stderr, "%s:%lu: invalid printer character set\n",
                             filename, line);
                     ok = 0;
+                } else {
+                    state->printer_charset = printer_charset;
                 }
             } else if (!strncmp(buffer, "#Printer-Device:", 16)) {
                 printer_device = strtoul(buffer + 16, NULL, 16);
@@ -78,6 +80,8 @@ int litton_load_drum
                     fprintf(stderr, "%s:%lu: invalid printer device identifier\n",
                             filename, line);
                     ok = 0;
+                } else {
+                    state->printer_id = (uint8_t)printer_device;
                 }
             } else if (!strncmp(buffer, "#Keyboard-Character-Set: ", 25)) {
                 if (!litton_charset_from_name
@@ -85,6 +89,8 @@ int litton_load_drum
                     fprintf(stderr, "%s:%lu: invalid keyboard character set\n",
                             filename, line);
                     ok = 0;
+                } else {
+                    state->keyboard_charset = keyboard_charset;
                 }
             } else if (!strncmp(buffer, "#Keyboard-Device:", 17)) {
                 keyboard_device = strtoul(buffer + 17, NULL, 16);
@@ -94,6 +100,8 @@ int litton_load_drum
                     fprintf(stderr, "%s:%lu: invalid keyboard identifier\n",
                             filename, line);
                     ok = 0;
+                } else {
+                    state->keyboard_id = (uint8_t)keyboard_device;
                 }
             }
         } else if (buffer[0] != '\0') {
@@ -115,14 +123,5 @@ int litton_load_drum
         }
     }
     fclose(file);
-    if (ok) {
-        /* Set up the keyboard and printer for the machine */
-        if (printer_device != 0) {
-            litton_add_printer(state, printer_device, printer_charset);
-        }
-        if (keyboard_device != 0) {
-            litton_add_keyboard(state, keyboard_device, keyboard_charset);
-        }
-    }
     return ok;
 }

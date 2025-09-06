@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
     if (!litton_load_drum(&machine, drum_image, NULL)) {
         litton_free(&machine);
     }
+    litton_create_default_devices(&machine);
 
     /* Reset the machine */
     litton_reset(&machine);

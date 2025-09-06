@@ -35,6 +35,10 @@ void litton_init(litton_state_t *state)
     /* Set the default drum size */
     litton_set_drum_size(state, LITTON_DRUM_MAX_SIZE);
 
+    /* Set the default character sets for the printer and keyboard */
+    state->printer_charset = LITTON_CHARSET_ASCII;
+    state->keyboard_charset = LITTON_CHARSET_ASCII;
+
     /* Reset the machine, which will effect a jump to the entry point */
     litton_reset(state);
 }

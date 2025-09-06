@@ -197,6 +197,16 @@ static void litton_printer_output
     }
 }
 
+void litton_create_default_devices(litton_state_t *state)
+{
+    if (state->printer_id != 0) {
+        litton_add_printer(state, state->printer_id, state->printer_charset);
+    }
+    if (state->keyboard_id != 0) {
+        litton_add_keyboard(state, state->keyboard_id, state->keyboard_charset);
+    }
+}
+
 void litton_add_printer
     (litton_state_t *state, uint8_t id, litton_charset_t charset)
 {
