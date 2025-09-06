@@ -36,6 +36,40 @@ See the [assembler documentation](doc/assembler-low-level.md)
 for more information.  The programs in the `examples` directory are written
 using this assembler.
 
+## Disassembler
+
+The `litton-disassembler` tool can disassemble images in the
+[drum image file format](doc/drum-image-format.md).  By default the
+disassembler uses a "pretty" format that tries to show the code as
+straight-line code:
+
+    $ litton-disassembler examples/fibonacci.drum
+    700: CL
+         ST    0
+         SK
+    701: AK
+         XC    1
+    702: CA    1
+         ST    7
+    703: JM    $707
+         XC    0
+    704: AD    1
+         JC    $706
+    705: XC    1
+         XC    0
+    ...
+
+There is also a raw mode that shows the sub-instructions in each word:
+
+    $ litton-disassembler --raw examples/fibonacci.drum
+    700: | CL          | ST    0     | SK          |             | NEXT: $701
+    701: | AK          | XC    1     | JU    $702  |             | NEXT: $702
+    702: | CA    1     | ST    7     |             |             | NEXT: $703
+    703: | JM    $707  | XC    0     | NN          |             | NEXT: $704
+    704: | AD    1     | JC    $706  |             |             | NEXT: $705
+    705: | XC    1     | XC    0     | JU    $702  |             | NEXT: $706
+    ...
+
 ## Documentation
 
 The following documents are from Litton and explain different aspects
@@ -54,7 +88,6 @@ Documentation for the tools in this repository:
 * Support for non-ASCII character sets.
 * Input and output punch tape formats.
 * Front panel interface that mimics the actual machine.
-* Disassembler for drum images and paper tapes.
 * Custom OPUS implementation to get a basic OS for the emulator.
 * Dump the real OPUS and integrate it when possible.
 
