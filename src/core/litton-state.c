@@ -39,6 +39,12 @@ void litton_init(litton_state_t *state)
     state->printer_charset = LITTON_CHARSET_ASCII;
     state->keyboard_charset = LITTON_CHARSET_ASCII;
 
+    /* Select register is control up to begin with */
+    state->selected_register = LITTON_BUTTON_CONTROL_UP;
+
+    /* Start with the power on and the machine halted */
+    state->status_lights = LITTON_STATUS_POWER | LITTON_STATUS_HALT;
+
     /* Reset the machine, which will effect a jump to the entry point */
     litton_reset(state);
 }
@@ -89,9 +95,13 @@ void litton_reset(litton_state_t *state)
     litton_drum_loc_t entry = state->entry_point;
     state->CR = 0xE0 | (entry >> 8);
     state->I = ((litton_word_t)(entry & 0xFFU)) << 32;
+    state->last_address = state->entry_point;
 
     /* Fake the jump to the entry point as starting at 0xFFF */
     state->PC = LITTON_DRUM_MAX_SIZE - 1;
+
+    /* K is set to 1 upon reset */
+    state->K = 1;
 }
 
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)

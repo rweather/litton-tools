@@ -50,6 +50,9 @@ static void litton_add_memory_timing
 {
     unsigned word_times;
 
+    /* Record the address for the benefit of the front panel TRACK light */
+    state->last_address = addr;
+
     /* Correct for scratchpad addresses.  Each scratchpad register loops
      * around every 8 words, so use the offset from the current position. */
     if (addr < LITTON_DRUM_RESERVED_SECTORS) {
@@ -760,9 +763,17 @@ litton_step_result_t litton_step(litton_state_t *state)
         case LOP_HH | 0x02: case LOP_HH | 0x03:
         case LOP_HH | 0x04: case LOP_HH | 0x05:
         case LOP_HH | 0x06: case LOP_HH | 0x07:
-            /* Halt the machine with REGISTER DISPLAY showing the low 3 bits */
-            state->register_display = state->CR & 0x07;
-            result = LITTON_STEP_HALT;
+            /* If the front panel is in halt mode, then halt instructions
+             * turn into no-ops to allow single-stepping. */
+            if ((state->status_lights & LITTON_STATUS_HALT) != 0) {
+                /* Perform the no-op */
+                litton_add_opcode_timing(state, 1);
+            } else {
+                /* Halt the machine and show the low 3 bits on the lights */
+                state->halt_code = state->CR & 0x07;
+                state->status_lights |= LITTON_STATUS_HALT_CODE;
+                result = LITTON_STEP_HALT;
+            }
             break;
 
         case LOP_AK:

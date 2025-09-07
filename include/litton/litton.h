@@ -653,11 +653,14 @@ struct litton_state_s
     /** Entry point to the system at reset time. */
     litton_drum_loc_t entry_point;
 
+    /** Last address that was accessed on the drum */
+    litton_drum_loc_t last_address;
+
     /** Contents of the "Block Interchange Loop" */
     litton_word_t block_interchange_loop[LITTON_DRUM_RESERVED_SECTORS];
 
-    /** Register display */
-    uint8_t register_display;
+    /** Halt code from the last "HH" instruction */
+    uint8_t halt_code;
 
     /** List of devices that are attached to the computer */
     litton_device_t *devices;
@@ -697,6 +700,12 @@ struct litton_state_s
 
     /** Identifier for the keyboard character set */
     litton_charset_t keyboard_charset;
+
+    /** State of the status lights on the front panel */
+    uint32_t status_lights;
+
+    /** Selected register on the front panel that is displayed on the lights */
+    uint32_t selected_register;
 };
 
 /**
@@ -898,6 +907,139 @@ int litton_charset_from_name
  * @return A pointer to the character set's name.
  */
 const char *litton_charset_to_name(litton_charset_t charset);
+
+/*----------------------------------------------------------------------*/
+
+/*
+ * Front panel management.
+ */
+
+/* Status lights from right to left */
+/** Power light */
+#define LITTON_STATUS_POWER         0x00000001U
+/** Ready light */
+#define LITTON_STATUS_READY         0x00000002U
+/** Run light */
+#define LITTON_STATUS_RUN           0x00000004U
+/** Halt light */
+#define LITTON_STATUS_HALT          0x00000008U
+/** State of the K flag (carry bit) */
+#define LITTON_STATUS_K             0x00000020U
+/** State of the track flag */
+#define LITTON_STATUS_TRACK         0x00000040U
+/** Register display, bit 0 (LSB) */
+#define LITTON_STATUS_BIT_0         0x00000100U
+/** Register display, bit 1 */
+#define LITTON_STATUS_BIT_1         0x00000200U
+/** Register display, bit 2 */
+#define LITTON_STATUS_BIT_2         0x00000400U
+/** Register display, bit 3 */
+#define LITTON_STATUS_BIT_3         0x00000800U
+/** Register display, bit 4 */
+#define LITTON_STATUS_BIT_4         0x00001000U
+/** Register display, bit 5 */
+#define LITTON_STATUS_BIT_5         0x00002000U
+/** Register display, bit 6 */
+#define LITTON_STATUS_BIT_6         0x00004000U
+/** Register display, bit 7 (MSB) */
+#define LITTON_STATUS_BIT_7         0x00008000U
+/** Instruction register light */
+#define LITTON_STATUS_INST          0x00010000U
+/** Accumulator register light */
+#define LITTON_STATUS_ACCUM         0x00020000U
+/** Displaying the halt status code just after halting */
+#define LITTON_STATUS_HALT_CODE     0x00040000U
+
+/** Power button */
+#define LITTON_BUTTON_POWER         0x00000001U
+/** Ready light */
+#define LITTON_BUTTON_READY         0x00000002U
+/** Run light */
+#define LITTON_BUTTON_RUN           0x00000004U
+/** Halt light */
+#define LITTON_BUTTON_HALT          0x00000008U
+/** Reset the K flag (carry bit) */
+#define LITTON_BUTTON_K_RESET       0x00000010U
+/** Set the K flag (carry bit) */
+#define LITTON_BUTTON_K_SET         0x00000020U
+/** Reset the displayed register to zero */
+#define LITTON_BUTTON_RESET         0x00000080U
+/** Register display, bit 0 (LSB) */
+#define LITTON_BUTTON_BIT_0         0x00000100U
+/** Register display, bit 1 */
+#define LITTON_BUTTON_BIT_1         0x00000200U
+/** Register display, bit 2 */
+#define LITTON_BUTTON_BIT_2         0x00000400U
+/** Register display, bit 3 */
+#define LITTON_BUTTON_BIT_3         0x00000800U
+/** Register display, bit 4 */
+#define LITTON_BUTTON_BIT_4         0x00001000U
+/** Register display, bit 5 */
+#define LITTON_BUTTON_BIT_5         0x00002000U
+/** Register display, bit 6 */
+#define LITTON_BUTTON_BIT_6         0x00004000U
+/** Register display, bit 7 (MSB) */
+#define LITTON_BUTTON_BIT_7         0x00008000U
+/** Register select switch, Control upwards facing */
+#define LITTON_BUTTON_CONTROL_UP    0x00010000U
+/** Register select switch, Instruction 32 */
+#define LITTON_BUTTON_INST_32       0x00020000U
+/** Register select switch, Instruction 24 */
+#define LITTON_BUTTON_INST_24       0x00040000U
+/** Register select switch, Instruction 16 */
+#define LITTON_BUTTON_INST_16       0x00080000U
+/** Register select switch, Instruction 8 */
+#define LITTON_BUTTON_INST_8        0x00100000U
+/** Register select switch, Instruction 0 */
+#define LITTON_BUTTON_INST_0        0x00200000U
+/** Register select switch, Control downwards facing */
+#define LITTON_BUTTON_CONTROL_DOWN  0x00400000U
+/** Register select switch, Accumulator 32 */
+#define LITTON_BUTTON_ACCUM_32      0x00800000U
+/** Register select switch, Accumulator 24 */
+#define LITTON_BUTTON_ACCUM_24      0x01000000U
+/** Register select switch, Accumulator 16 */
+#define LITTON_BUTTON_ACCUM_16      0x02000000U
+/** Register select switch, Accumulator 8 */
+#define LITTON_BUTTON_ACCUM_8       0x08000000U
+/** Register select switch, Accumulator 0 */
+#define LITTON_BUTTON_ACCUM_0       0x10000000U
+
+/**
+ * @brief Get the state of all status lights on the front panel.
+ *
+ * @param[in] state The state of the computer.
+ *
+ * @return A bitmask of LITTON_STATUS_* values.
+ */
+uint32_t litton_get_status_lights(litton_state_t *state);
+
+/**
+ * @brief Press a specific button on the front panel.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] button The button that was pressed; e.g. LITTON_BUTTON_INST_8.
+ *
+ * @return Non-zero if the button took an action, or zero if the button
+ * is blocked at the moment due to the computer being in some other state.
+ */
+int litton_press_button(litton_state_t *state, uint32_t button);
+
+/**
+ * @brief Determine if the computer is halted.
+ *
+ * @param[in] state The state of the computer.
+ *
+ * @return Non-zero if the computer is halted, zero if it is running.
+ */
+int litton_is_halted(litton_state_t *state);
+
+/**
+ * @brief Updates the status lights based on the state of the computer.
+ *
+ * @return[in,out] state The state of the computer.
+ */
+void litton_update_status_lights(litton_state_t *state);
 
 #ifdef __cplusplus
 }

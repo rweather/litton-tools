@@ -92,6 +92,11 @@ int main(int argc, char *argv[])
     /* Reset the machine */
     litton_reset(&machine);
 
+    /* Press HALT, READY, and then RUN to start running the program */
+    litton_press_button(&machine, LITTON_BUTTON_HALT);
+    litton_press_button(&machine, LITTON_BUTTON_READY);
+    litton_press_button(&machine, LITTON_BUTTON_RUN);
+
     /* Keep running the program until halt, illegal instruction, or spinning */
     checkpoint_counter = machine.cycle_counter;
     clock_gettime(CLOCK_MONOTONIC, &checkpoint_time);
@@ -129,9 +134,9 @@ int main(int argc, char *argv[])
     case LITTON_STEP_HALT:
         /* If the halt code is 0, assume everything is OK.
          * Otherwise report a message and change the exit status. */
-        if (machine.register_display != 0) {
+        if (machine.halt_code != 0) {
             fprintf(stderr, "Halted at address %03X, halt code = %d\n",
-                    (unsigned)(machine.PC), machine.register_display);
+                    (unsigned)(machine.PC), machine.halt_code);
             exit_status = 1;
         }
         break;
