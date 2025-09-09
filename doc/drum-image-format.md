@@ -41,12 +41,12 @@ the image at.  If the entry point is not specified, then it needs to be
 provided separately to the emulator.
 * `Keyboard-Character-Set` - Expected character set for keyboard input.
 This is used by the emulator to mount the correct keyboard device for the
-program.  Defaults to "ASCII".
+program.  Defaults to "EBS1231".
 * `Keyboard-Device` - Device select code for the keyboard device,
 in hexadecimal.
 * `Printer-Character-Set` - Expected character set for printer output
 in the program.  This is used by the emulator to mount the correct
-printer device for the program.  Defaults to "ASCII".
+printer device for the program.  Defaults to "EBS1231".
 * `Printer-Device` - Device select code for the printer device, in hexadecimal.
 
 The names of the metadata fields are case-sensitive.  Other metadata fields
@@ -74,4 +74,5 @@ The following character sets are currently supported:
 
 * ASCII - Self-explantory.
 * UASCII - Uppercase-only ASCII.
-* EBS315 - Keyboard character set from section B.4 of the [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf).
+* EBS1231 - Character set from Appendix V of the EBS/1231 System Programming
+Manual.  This is the native character set of the Litton.

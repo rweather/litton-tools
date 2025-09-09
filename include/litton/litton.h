@@ -334,7 +334,7 @@ const litton_opcode_info_t *litton_opcode_by_name
 /**
  * @brief Determine if two names are identical, ignoring case.
  *
- * @param[in] name1 The first name.
+ * @param[in] name1 The first name, usually NUL-terminated.
  * @param[in] name2 The second name.
  * @param[in] name2_len The length of the second name.
  *
@@ -394,9 +394,14 @@ typedef enum
  */
 typedef enum
 {
-    LITTON_CHARSET_ASCII,   /**< Plain ASCII */
-    LITTON_CHARSET_UASCII,  /**< Uppercase-only ASCII */
-    LITTON_CHARSET_EBS315   /**< Keyboard charset from EBS315 Operator Manual */
+    /** Plain ASCII */
+    LITTON_CHARSET_ASCII,
+
+    /** Uppercase-only ASCII */
+    LITTON_CHARSET_UASCII,
+
+    /** Charset from Appendix V of the EBS/1231 System Programming Manual */
+    LITTON_CHARSET_EBS1231
 
 } litton_charset_t;
 
@@ -419,6 +424,9 @@ struct litton_device_s
 
     /** Non-zero when this device is selected */
     uint8_t selected;
+
+    /** Current print position */
+    unsigned print_position;
 
     /** Character set for this device */
     litton_charset_t charset;
@@ -866,26 +874,41 @@ void litton_add_output_tape
      const char *filename);
 
 /**
- * @brief Converts an ASCII character into a specific character set.
+ * @brief Converts ASCII characters into a specific character set.
  *
- * @param[in] ch The character to convert.
+ * @param[in] str Points to the start of the string to convert.
+ * @param[in,out] posn Current position in the string.
+ * @param[in] len Length of the string.
  * @param[in] charset The character set to convert into.
  *
- * @return The converted version of @a ch, or -1 if the character does
- * not have a valid mapping.
+ * @return The converted version of the next character, or -1 if the
+ * character does not have a valid mapping or there are no more characters.
+ *
+ * This function can be used to step through a string and convert it
+ * into the destination character set.
+ *
+ * When using the EBS1231 character set, sometimes multiple ASCII
+ * characters are required to represent the EBS1231 character.  For example,
+ * "[P1]" is used to represent the P1 keycode and "{49}" is used to
+ * represent "move the print head to position 49".
  */
-int litton_char_to_charset(int ch, litton_charset_t charset);
+int litton_char_to_charset
+    (const char *str, size_t *posn, size_t len, litton_charset_t charset);
 
 /**
- * @brief Converts an ASCII character from a specific character set.
+ * @brief Converts a character in a specific character set into ASCII.
  *
  * @param[in] ch The character to convert.
  * @param[in] charset The character set to convert from.
+ * @param[out] string_form Returns a pointer to the string form of the
+ * character if it requires multiple ASCII characters to express.
  *
- * @return The ASCII version of @a ch, or -1 if the character does
- * not have a valid mapping.
+ * @return The ASCII version of @a ch, -1 if the character does
+ * not have a valid mapping, or -2 if the ASCII version is returned in
+ * @a string_form because it is more than one byte.
  */
-int litton_char_from_charset(int ch, litton_charset_t charset);
+int litton_char_from_charset
+    (int ch, litton_charset_t charset, const char **string_form);
 
 /**
  * @brief Gets a character set code from its name.
@@ -907,6 +930,16 @@ int litton_charset_from_name
  * @return A pointer to the character set's name.
  */
 const char *litton_charset_to_name(litton_charset_t charset);
+
+/**
+ * @brief Converts a Litton EBS/1231 character code into a print wheel position.
+ *
+ * @param[in] code The character code.
+ *
+ * @return The print wheel position between 1 and 190, or 0 if @a code
+ * does not correspond to a print wheel position.
+ */
+uint8_t litton_print_wheel_position(uint8_t code);
 
 /*----------------------------------------------------------------------*/
 

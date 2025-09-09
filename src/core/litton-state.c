@@ -36,8 +36,8 @@ void litton_init(litton_state_t *state)
     litton_set_drum_size(state, LITTON_DRUM_MAX_SIZE);
 
     /* Set the default character sets for the printer and keyboard */
-    state->printer_charset = LITTON_CHARSET_ASCII;
-    state->keyboard_charset = LITTON_CHARSET_ASCII;
+    state->printer_charset = LITTON_CHARSET_EBS1231;
+    state->keyboard_charset = LITTON_CHARSET_EBS1231;
 
     /* Select register is control up to begin with */
     state->selected_register = LITTON_BUTTON_CONTROL_UP;

@@ -113,6 +113,24 @@ as though an implicit ending quote was supplied.
 The assembler converts the string into the active character set,
 as selected by the `.charset` or `.console` directives.
 
+The default EBS1231 character set has a number of codes for special
+keys on the keyboard or for moving the print head to a specific position.
+These can be expressed with strings like "[P1]" for the P1 key or
+"{49}" for moving the print head to position 49.
+
+* "\r" - Return
+* "\n" - Line Feed Left
+* "\f" - Form Up
+* "\b" - Backspace
+* "[P1]", "[P2]", "[P3]", "[P4]"
+* "[I]", "[II]", "[III]", "[IIII]"
+* "[LFB]" - Line Feed Both
+* "[LFR]" - Line Feed Right
+* "[BR]" - Black Ribbon Print
+* "[RR]" - Red Ribbon Print
+* "[TL]" - Tape Leader / Carriage Open or Close
+* "{n}" - Move print position to n, where n is between 4 and 190 in steps of 3
+
 ## Comments
 
 Comments start with a semi-colon ";" and extend to the end of the
@@ -146,7 +164,7 @@ Can only appear once in the source file.
 keyboard character set to `CHARSET`.  This will also define the symbol
 `keyboard` to be N.  Can only appear once in the source file.
 * `charset "CHARSET"` - Sets the character set to use for the
-following strings.
+following strings.  The default character set is "EBS1231".
 * `align` - Aligns the next instruction on a word boundary, inserting
 no-op's as necessary.  This is done implicitly for code labels as it is only
 possible to jump to word-aligned addresses.

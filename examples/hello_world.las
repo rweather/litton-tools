@@ -1,5 +1,5 @@
     title "Hello, World!"
-    printer $11,"ASCII"
+    printer $11,"EBS1231"
     drumsize 2048
     org $300
 start:
@@ -16,7 +16,6 @@ start:
     oiw "r"
     oiw "l"
     oiw "d"
-    oiw "!"
     oiw "\r"
     oiw "\n"
     hh 0                ; Halt.

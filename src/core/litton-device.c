@@ -23,6 +23,7 @@
 #include <litton/litton.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void litton_add_device(litton_state_t *state, litton_device_t *device)
 {
@@ -188,14 +189,58 @@ static void litton_printer_output
     (litton_state_t *state, litton_device_t *device,
      uint8_t value, litton_parity_t parity)
 {
-    int ch;
     (void)state;
     value = litton_remove_parity(value, parity);
-    ch = litton_char_from_charset(value, device->charset);
-    if (ch != -1) {
-        putc(ch, stdout);
-        fflush(stdout);
+    if (device->charset == LITTON_CHARSET_EBS1231) {
+        /* Does this look like a print wheel position? */
+        uint8_t position = litton_print_wheel_position(value);
+        if (position != 0) {
+            /* Yes, so space forward or backspace back to put the
+             * print head in the right column. */
+            --position;
+            while (device->print_position < position) {
+                putc(' ', stdout);
+                ++(device->print_position);
+            }
+            while (device->print_position > position) {
+                putc('\b', stdout);
+                --(device->print_position);
+            }
+        } else if (value == 075 || value == 055 || value == 054) {
+            /* Line Feed Left / Line Feed Right / Line Feed Both */
+            putc('\n', stdout);
+        } else {
+            /* Convert the code into its ASCII form */
+            const char *string_form;
+            int ch = litton_char_from_charset
+                (value, device->charset, &string_form);
+            if (ch == '\n' || ch == '\f') {
+                /* Output a carriage return and line feed */
+                putc('\r', stdout);
+                putc('\n', stdout);
+                device->print_position = 0;
+            } else if (ch == '\r') {
+                putc(ch, stdout);
+                device->print_position = 0;
+            } else if (ch == '\b') {
+                putc('\b', stdout);
+                if (device->print_position > 0) {
+                    --(device->print_position);
+                }
+            } else if (ch >= 0) {
+                /* Single character */
+                putc(ch, stdout);
+            } else if (ch == -2) {
+                /* Multi-character string */
+                fputs(string_form, stdout);
+                device->print_position += strlen(string_form);
+            }
+        }
+    } else {
+        /* Assume plain ASCII codes as input */
+        putc(value, stdout);
     }
+    fflush(stdout);
 }
 
 void litton_create_default_devices(litton_state_t *state)
@@ -266,38 +311,206 @@ void litton_add_output_tape
     (void)filename;
 }
 
-int litton_char_to_charset(int ch, litton_charset_t charset)
+/** Mapping table from Appendix V of the EBS/1231 System Programming Manual */
+static const char * const litton_EBS1231_to_ASCII[128] = {
+    /* Octal Code       ASCII */
+    /* 000 */           " ",
+    /* 001 */           "1",
+    /* 002 */           "2",
+    /* 003 */           "3",
+    /* 004 */           "4",
+    /* 005 */           "5",
+    /* 006 */           "6",
+    /* 007 */           "7",
+    /* 010 */           "8",
+    /* 011 */           "9",
+    /* 012 */           "@",            /* Also the CLEAR key */
+    /* 013 */           "#",            /* Also the P0 key */
+    /* 014 */           "[P1]",
+    /* 015 */           "[P2]",
+    /* 016 */           "[P3]",
+    /* 017 */           "[P4]",
+    /* 020 */           "0",
+    /* 021 */           "/",
+    /* 022 */           "S",
+    /* 023 */           "T",
+    /* 024 */           "U",
+    /* 025 */           "V",
+    /* 026 */           "W",
+    /* 027 */           "X",
+    /* 030 */           "Y",
+    /* 031 */           "Z",
+    /* 032 */           "*",
+    /* 033 */           ",",
+    /* 034 */           "[I]",
+    /* 035 */           "[II]",
+    /* 036 */           "[III]",
+    /* 037 */           "[IIII]",
+    /* 040 */           "-",            /* Also the diamond key */
+    /* 041 */           "J",
+    /* 042 */           "K",
+    /* 043 */           "L",
+    /* 044 */           "M",
+    /* 045 */           "N",
+    /* 046 */           "O",
+    /* 047 */           "P",
+    /* 050 */           "Q",
+    /* 051 */           "R",
+    /* 052 */           "%",
+    /* 053 */           "$",
+    /* 054 */           "[LFB]",        /* Line feed both */
+    /* 055 */           "[LFR]",        /* Line feed right */
+    /* 056 */           "[BR]",         /* Black ribbon print */
+    /* 057 */           "\f",           /* Form up */
+    /* 060 */           "&",
+    /* 061 */           "A",
+    /* 062 */           "B",
+    /* 063 */           "C",
+    /* 064 */           "D",
+    /* 065 */           "E",
+    /* 066 */           "F",
+    /* 067 */           "G",
+    /* 070 */           "H",
+    /* 071 */           "I",
+    /* 072 */           "[072]",        /* Not used */
+    /* 073 */           ".",
+    /* 074 */           "[RR]",         /* Red ribbon print */
+    /* 075 */           "\n",           /* Line feed left */
+    /* 076 */           "\b",           /* Backspace */
+    /* 077 */           "[TL]",         /* Carriage Open or Close / Tape Leader */
+    /* 100 */           "\r",           /* Return printer to position 1 */
+    /* 101 */           "{4}",          /* Printer wheel positions */
+    /* 102 */           "{7}",
+    /* 103 */           "{10}",
+    /* 104 */           "{13}",
+    /* 105 */           "{16}",
+    /* 106 */           "{19}",
+    /* 107 */           "{22}",
+    /* 110 */           "{25}",
+    /* 111 */           "{28}",
+    /* 112 */           "{31}",
+    /* 113 */           "{34}",
+    /* 114 */           "{37}",
+    /* 115 */           "{40}",
+    /* 116 */           "{43}",
+    /* 117 */           "{46}",
+    /* 120 */           "{49}",
+    /* 121 */           "{52}",
+    /* 122 */           "{55}",
+    /* 123 */           "{58}",
+    /* 124 */           "{61}",
+    /* 125 */           "{64}",
+    /* 126 */           "{67}",
+    /* 127 */           "{70}",
+    /* 130 */           "{73}",
+    /* 131 */           "{76}",
+    /* 132 */           "{79}",
+    /* 133 */           "{82}",
+    /* 134 */           "{85}",
+    /* 135 */           "{88}",
+    /* 136 */           "{91}",
+    /* 137 */           "{94}",
+    /* 140 */           "{97}",
+    /* 141 */           "{100}",
+    /* 142 */           "{103}",
+    /* 143 */           "{106}",
+    /* 144 */           "{109}",
+    /* 145 */           "{112}",
+    /* 146 */           "{115}",
+    /* 147 */           "{118}",
+    /* 150 */           "{121}",
+    /* 151 */           "{124}",
+    /* 152 */           "{127}",
+    /* 153 */           "{130}",
+    /* 154 */           "{133}",
+    /* 155 */           "{136}",
+    /* 156 */           "{139}",
+    /* 157 */           "{142}",
+    /* 160 */           "{145}",
+    /* 161 */           "{148}",
+    /* 162 */           "{151}",
+    /* 163 */           "{154}",
+    /* 164 */           "{157}",
+    /* 165 */           "{160}",
+    /* 166 */           "{163}",
+    /* 167 */           "{166}",
+    /* 170 */           "{169}",
+    /* 171 */           "{172}",
+    /* 172 */           "{175}",
+    /* 173 */           "{178}",
+    /* 174 */           "{181}",
+    /* 175 */           "{184}",
+    /* 176 */           "{187}",
+    /* 177 */           "{190}"
+};
+
+static int litton_ebs1231_match
+    (const char *str, size_t *posn, size_t len, const char *sequence)
 {
+    size_t seq_len = strlen(sequence);
+    if ((*posn + seq_len) > len) {
+        return 0;
+    }
+    if (litton_name_match(sequence, str + *posn, seq_len)) {
+        *posn += seq_len;
+        return 1;
+    }
+    return 0;
+}
+
+int litton_char_to_charset
+    (const char *str, size_t *posn, size_t len, litton_charset_t charset)
+{
+    int ch;
+    if ((*posn) >= len) {
+        return -1;
+    }
     switch (charset) {
     case LITTON_CHARSET_ASCII:
-        break;
+        /* Plain ASCII, one character at a time */
+        ch = str[(*posn)++];
+        return ch & 0xFF;
 
     case LITTON_CHARSET_UASCII:
-        /* Force the character to uppercase */
+        /* Plain ASCII, but force the character to uppercase */
+        ch = str[(*posn)++];
         if (ch >= 'a' && ch <= 'z') {
             ch = ch - 'a' + 'A';
         }
-        break;
+        return ch & 0xFF;
 
-    case LITTON_CHARSET_EBS315:
-        // TODO: Non-ASCII character sets.
-        ch = -1;
+    case LITTON_CHARSET_EBS1231:
+        /* Scan the EBS1231 mapping table to find a match */
+        for (ch = 0; ch < 128; ++ch) {
+            if (litton_ebs1231_match
+                    (str, posn, len, litton_EBS1231_to_ASCII[ch])) {
+                return ch;
+            }
+        }
+        ch = -1; /* Not found */
         break;
     }
-    return ch;
+    return -1;
 }
 
-int litton_char_from_charset(int ch, litton_charset_t charset)
+int litton_char_from_charset
+    (int ch, litton_charset_t charset, const char **string_form)
 {
     switch (charset) {
     case LITTON_CHARSET_ASCII:
     case LITTON_CHARSET_UASCII:
+        *string_form = 0;
         break;
 
-    case LITTON_CHARSET_EBS315:
-        // TODO: Non-ASCII character sets.
-        ch = -1;
-        break;
+    case LITTON_CHARSET_EBS1231:
+        *string_form = litton_EBS1231_to_ASCII[ch & 0x7F];
+        if ((*string_form)[1] == '\0') {
+            /* Single character is converted directly to ASCII */
+            return (*string_form)[0];
+        } else {
+            /* Caller needs to use the string form instead */
+            return -2;
+        }
     }
     return ch;
 }
@@ -313,8 +526,8 @@ int litton_charset_from_name
         *charset = LITTON_CHARSET_UASCII;
         return 1;
     }
-    if (litton_name_match("EBS315", name, name_len)) {
-        *charset = LITTON_CHARSET_EBS315;
+    if (litton_name_match("EBS1231", name, name_len)) {
+        *charset = LITTON_CHARSET_EBS1231;
         return 1;
     }
     return 0;
@@ -323,9 +536,18 @@ int litton_charset_from_name
 const char *litton_charset_to_name(litton_charset_t charset)
 {
     switch (charset) {
-    case LITTON_CHARSET_ASCII:  return "ASCII";
-    case LITTON_CHARSET_UASCII: return "UASCII";
-    case LITTON_CHARSET_EBS315: return "EBS315";
+    case LITTON_CHARSET_ASCII:      return "ASCII";
+    case LITTON_CHARSET_UASCII:     return "UASCII";
+    case LITTON_CHARSET_EBS1231:    return "EBS1231";
     }
     return "ASCII"; /* Just in case */
+}
+
+uint8_t litton_print_wheel_position(uint8_t code)
+{
+    if (code >= 0101 && code <= 0177) {
+        return (code - 0101) * 3 + 4;
+    } else {
+        return 0;
+    }
 }

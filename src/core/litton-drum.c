@@ -34,9 +34,9 @@ int litton_load_drum
     size_t len;
     unsigned long line;
     unsigned long printer_device = 0;
-    litton_charset_t printer_charset = LITTON_CHARSET_ASCII;
+    litton_charset_t printer_charset = LITTON_CHARSET_EBS1231;
     unsigned long keyboard_device = 0;
-    litton_charset_t keyboard_charset = LITTON_CHARSET_ASCII;
+    litton_charset_t keyboard_charset = LITTON_CHARSET_EBS1231;
     int ok = 1;
     if ((file = fopen(filename, "r")) == NULL) {
         perror(filename);

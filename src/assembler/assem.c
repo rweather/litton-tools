@@ -33,7 +33,7 @@ void litton_assem_init
     litton_tokeniser_init(&(assem->tokeniser), input, filename);
     litton_drum_image_init(&(assem->drum));
     litton_symbol_table_init(&(assem->symbols));
-    assem->charset = LITTON_CHARSET_ASCII;
+    assem->charset = LITTON_CHARSET_EBS1231;
 }
 
 void litton_assem_free(litton_assem_t *assem)
@@ -97,6 +97,53 @@ static int litton_assem_escape_char(int ch)
 }
 
 /**
+ * @brief Gets the next character in the current string token and converts
+ * it into the corresponding character in the current character set.
+ *
+ * @param[in,out] assem The assembler state.
+ * @param[in,out] posn Current position within the string.
+ * @param[out] ch Returns the character code.
+ *
+ * @return Non-zero on success, zero at the end of the string.
+ */
+static int litton_assem_next_string_char
+    (litton_assem_t *assem, size_t *posn, uint8_t *ch)
+{
+    int nextch;
+    char buf[1];
+    size_t temp;
+
+    /* Check for the end of the string */
+    if (*posn >= assem->tokeniser.name_len) {
+        return 0;
+    }
+
+    /* Do we have an escape sequence? */
+    nextch = assem->tokeniser.name[*posn] & 0xFF;
+    if (nextch == '\\' && (*posn + 1) < assem->tokeniser.name_len) {
+        /* Deal with C-style escape sequences */
+        ++(*posn);
+        nextch = assem->tokeniser.name[(*posn)++] & 0xFF;
+        nextch = litton_assem_escape_char(nextch);
+        buf[0] = (char)nextch;
+        temp = 0;
+        nextch = litton_char_to_charset(buf, &temp, 1, assem->charset);
+    } else {
+        /* Convert the character into the output character set */
+        nextch = litton_char_to_charset
+            (assem->tokeniser.name, posn, assem->tokeniser.name_len,
+            assem->charset);
+    }
+    if (nextch < 0) {
+        litton_error
+            (&(assem->tokeniser), "invalid character for character set");
+        return 0;
+    }
+    *ch = (uint8_t)nextch;
+    return 1;
+}
+
+/**
  * @brief Evaluates an expression from the input stream.
  *
  * @param[in,out] assem The assembler state.
@@ -137,39 +184,26 @@ static int litton_assem_eval_expr
             return 0;
         }
     } else if (token == LTOK_STRING) {
-        /* Empty or single-character string expected */
-        int ch;
-        if (assem->tokeniser.name_len == 0) {
-            ch = 0; /* NUL */
-        } else {
-            ch = assem->tokeniser.name[0] & 0xFF;
-            if (ch == '\\' && assem->tokeniser.name_len == 2) {
-                /* Handle some basic escape sequences */
-                ch = assem->tokeniser.name[1] & 0xFF;
-                ch = litton_assem_escape_char(ch);
-            } else if (assem->tokeniser.name_len != 1) {
-                litton_error
-                    (&(assem->tokeniser),
-                     "empty or single character string expected");
-                return 0;
-            }
-        }
-        *value = litton_char_to_charset(ch, assem->charset);
-        if (*value == -1) {
-            /* Cannot convert this into the current character set */
-            if (ch >= 0x20 && ch <= 0x7E) {
-                litton_error
-                    (&(assem->tokeniser),
-                     "'%c' does not have a mapping in the current character set",
-                     ch);
-            } else {
-                litton_error
-                    (&(assem->tokeniser),
-                     "0x%02X does not have a mapping in the current character set",
-                     ch);
-            }
+        /* Single-character string expected */
+        size_t posn = 0;
+        uint8_t ch = 0;
+        if (posn >= assem->tokeniser.name_len) {
+            litton_error
+                (&(assem->tokeniser), "single character string expected");
             return 0;
         }
+        if (litton_assem_next_string_char(assem, &posn, &ch)) {
+            *value = ch;
+            if (posn < assem->tokeniser.name_len) {
+                litton_error
+                    (&(assem->tokeniser),
+                     "invalid character for character set");
+                return 0;
+            }
+        } else {
+            return 0;
+        }
+        *value = ch;
     } else {
         /* If the token is an error, we have already reported the problem */
         if (token != LTOK_ERROR) {
@@ -361,44 +395,6 @@ static int litton_assem_org(litton_assem_t *assem)
     /* Move the origin point */
     assem->drum.posn.posn = (litton_drum_loc_t)value;
     assem->drum.posn.sub_posn = 0;
-    return 1;
-}
-
-/**
- * @brief Gets the next character in the current string token and converts
- * it into the corresponding character in the current character set.
- *
- * @param[in,out] assem The assembler state.
- * @param[in,out] posn Current position within the string.
- * @param[out] ch Returns the character code.
- *
- * @return Non-zero on success, zero at the end of the string.
- */
-static int litton_assem_next_string_char
-    (litton_assem_t *assem, size_t *posn, uint8_t *ch)
-{
-    int nextch;
-
-    /* Check for the end of the string */
-    if (*posn >= assem->tokeniser.name_len) {
-        return 0;
-    }
-
-    /* Fetch the next character and deal with escape sequences */
-    nextch = assem->tokeniser.name[(*posn)++] & 0xFF;
-    if (nextch == '\\' && *posn < assem->tokeniser.name_len) {
-        nextch = assem->tokeniser.name[(*posn)++] & 0xFF;
-        nextch = litton_assem_escape_char(nextch);
-    }
-
-    /* Convert the character into the output character set */
-    nextch = litton_char_to_charset(nextch, assem->charset);
-    if (nextch < 0) {
-        litton_error
-            (&(assem->tokeniser), "invalid character for character set");
-        return 0;
-    }
-    *ch = (uint8_t)nextch;
     return 1;
 }
 
