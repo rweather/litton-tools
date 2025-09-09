@@ -292,7 +292,7 @@ void litton_update_status_lights(litton_state_t *state)
         /* Accumulator and instruction lights are off when running */
         state->status_lights &= ~LITTON_STATUS_ACCUM;
         state->status_lights &= ~LITTON_STATUS_INST;
-    } else if ((state->status_lights & LITTON_STATUS_HALT_CODE) == 0) {
+    } else if ((state->status_lights & LITTON_STATUS_HALT_CODE) != 0) {
         /* Displaying the halt code just after the program halted.
          * As soon as a button is pressed, the halt code will go away. */
         litton_update_register_display(state, state->halt_code);
