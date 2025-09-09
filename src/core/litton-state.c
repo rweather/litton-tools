@@ -91,10 +91,11 @@ void litton_set_entry_point(litton_state_t *state, litton_drum_loc_t entry)
 
 void litton_reset(litton_state_t *state)
 {
-    /* Force an unconditional jump to the entry point into CR and I */
+    /* Force a conditional jump to the entry point into CR and I */
     litton_drum_loc_t entry = state->entry_point;
-    state->CR = 0xE0 | (entry >> 8);
+    state->CR = 0xF0 | (entry >> 8);
     state->I = ((litton_word_t)(entry & 0xFFU)) << 32;
+    state->I |= 0xFFFFFFFFU; /* Set the rest of I to FF's */
     state->last_address = state->entry_point;
 
     /* Fake the jump to the entry point as starting at 0xFFF */
