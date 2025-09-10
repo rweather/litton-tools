@@ -7,8 +7,13 @@ David Lovett a.k.a Usagi Electric.
 
 ## Building
 
-The code is designed to run under Linux systems.  You will need
-cmake and gcc installed to build it.
+The code is designed to run under Linux systems, using SDL2 for the
+graphical user interface.  You will need cmake and SDL2 installed to build it
+(and obviously a C compiler like gcc):
+
+    sudo apt install cmake libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+
+Then do this from the main repository directory:
 
     mkdir build
     cd build
@@ -18,8 +23,8 @@ cmake and gcc installed to build it.
 
 ## Running
 
-After building and installing the tools, you can run the emulator
-on the examples:
+After building and installing the tools, you can run the command-line
+emulator on the examples to check basic functionality:
 
     litton-run examples/hello_world.drum
     litton-run examples/fibonacci.drum
@@ -28,8 +33,17 @@ Use the `-v` (verbose) option to disassemble instructions as they are executed:
 
     litton-run -v examples/fibonacci.drum
 
-The emulator will attempt to simulate the speed of the original Litton.
-Use the `-f` option (fast mode) to run at the full speed of the host computer.
+The command-line emulator will attempt to simulate the speed of the original
+Litton.  Use the `-f` option (fast mode) to run at the full speed of the
+host computer.
+
+To run the GUI version of the emulator, use "litton" instead:
+
+    litton examples/echo.drum
+
+Once the system starts, press HALT, then READY, then RUN to start the program.
+See the [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf)
+for more information on using the computer from the front panel.
 
 ## Assembler
 
@@ -95,11 +109,11 @@ Documentation for the tools in this repository:
 
 ## TODO
 
-* Support for non-ASCII character sets.
 * Input and output punch tape formats.
-* Front panel interface that mimics the actual machine.
 * Custom OPUS implementation to get a basic OS for the emulator.
 * Dump the real OPUS and integrate it when possible.
+* Tools for writing and disassembling program tapes in the high-level
+symbolic language.
 
 ## License
 

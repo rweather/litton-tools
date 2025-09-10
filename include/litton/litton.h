@@ -509,6 +509,12 @@ struct litton_device_s
                   uint8_t *value);
 };
 
+/** Default device number for the printer */
+#define LITTON_DEVICE_PRINTER   0x11 /* FIXME once the real number is known */
+
+/** Default device number for the keyboard */
+#define LITTON_DEVICE_KEYBOARD  0x11 /* FIXME once the real number is known */
+
 /**
  * @brief Adds a device to the computer.
  *

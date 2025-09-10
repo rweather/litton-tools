@@ -4,11 +4,15 @@
 LITTON_AS = ../build/src/litton-as
 
 PROGRAMS = \
+	echo.drum \
 	fibonacci.drum \
 	hellorld.drum \
 	hello_world.drum \
 
 all: $(PROGRAMS)
+
+echo.drum: echo.las
+	$(LITTON_AS) -o echo.drum echo.las
 
 fibonacci.drum: fibonacci.las
 	$(LITTON_AS) -o fibonacci.drum fibonacci.las

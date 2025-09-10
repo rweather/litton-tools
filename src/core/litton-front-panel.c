@@ -94,6 +94,7 @@ int litton_press_button(litton_state_t *state, uint32_t button)
      * All other buttons are non-operative. */
     if (button != LITTON_BUTTON_POWER &&
             (state->status_lights & LITTON_STATUS_POWER) == 0) {
+        state->selected_register = LITTON_BUTTON_CONTROL_UP;
         return 0;
     }
 
@@ -111,6 +112,7 @@ int litton_press_button(litton_state_t *state, uint32_t button)
         } else {
             /* Power is on, so turn it off */
             state->status_lights = 0;
+            state->selected_register = LITTON_BUTTON_CONTROL_UP;
             return 1;
         }
         break;
@@ -131,13 +133,7 @@ int litton_press_button(litton_state_t *state, uint32_t button)
         break;
 
     case LITTON_BUTTON_RUN:
-        /* Run requires the register select switch to be set to control
-         * and the system must be ready. */
-        if (state->selected_register != LITTON_BUTTON_CONTROL_UP &&
-                state->selected_register != LITTON_BUTTON_CONTROL_DOWN) {
-            ok = 0;
-            break;
-        }
+        /* Run requires the system to be ready. */
         if ((state->status_lights & LITTON_STATUS_READY) == 0) {
             ok = 0;
             break;
@@ -152,6 +148,12 @@ int litton_press_button(litton_state_t *state, uint32_t button)
                 /* If the current instruction is halt, then replace it
                  * with no-op to skip over the halt. */
                 state->CR = LOP_NN;
+            }
+
+            /* Move the knob back to control up if not control down.
+             * Cannot be set to anything except control when running. */
+            if (state->selected_register != LITTON_BUTTON_CONTROL_DOWN) {
+                state->selected_register = LITTON_BUTTON_CONTROL_UP;
             }
         }
         break;
@@ -231,8 +233,11 @@ int litton_press_button(litton_state_t *state, uint32_t button)
     case LITTON_BUTTON_ACCUM_0:
         /* Adjust the position of the register selector switch.
          * If the machine is halted, this will also update the
-         * register display lights.  No update if running. */
-        state->selected_register = button;
+         * register display lights.  No change if running. */
+        if ((state->status_lights & LITTON_STATUS_RUN) == 0 &&
+                (state->status_lights & LITTON_STATUS_READY) != 0) {
+            state->selected_register = button;
+        }
         break;
 
     default:

@@ -624,6 +624,7 @@ static litton_step_result_t litton_perform_io
             litton_add_opcode_timing(state, 4);
             litton_add_io_timing(state);
             state->B = litton_add_parity(state->A >> 32, LITTON_PARITY_ODD);
+            litton_output_to_device(state, state->B, LITTON_PARITY_ODD);
             state->A = state->A & 0xFFFFFFFFUL;
             state->A |= ((litton_word_t)(state->B)) << 32;
             state->K = 1;
@@ -771,7 +772,9 @@ litton_step_result_t litton_step(litton_state_t *state)
             } else {
                 /* Halt the machine and show the low 3 bits on the lights */
                 state->halt_code = state->CR & 0x07;
+                state->status_lights &= ~LITTON_STATUS_RUN;
                 state->status_lights |= LITTON_STATUS_HALT_CODE;
+                state->status_lights |= LITTON_STATUS_HALT;
                 result = LITTON_STEP_HALT;
             }
             break;

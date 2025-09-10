@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
     /* Load the drum image into memory */
     if (!litton_load_drum(&machine, drum_image, NULL)) {
         litton_free(&machine);
+        return 1;
     }
     litton_create_default_devices(&machine);
 

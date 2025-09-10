@@ -721,20 +721,21 @@ static int litton_assem_isw(litton_assem_t *assem)
 }
 
 /**
- * @brief Handle the "oaw" psuedo-opcode: output accumulator and wait.
+ * @brief Handle the output and wait psuedo-opcodes.
  *
  * @param[in] assem The assembler state.
+ * @param[in] opcode The opcode to use.
  *
  * @return Non-zero on success, zero on error.
  */
-static int litton_assem_oaw(litton_assem_t *assem)
+static int litton_assem_oa_wait(litton_assem_t *assem, uint16_t opcode)
 {
     litton_word_t word;
 
     /* Insert the equivalent of the following code:
      *
      *      label1:
-     *          oa
+     *          oa          ; or oao or oae
      *          jc label2
      *          ju label1
      *      label2:
@@ -743,20 +744,59 @@ static int litton_assem_oaw(litton_assem_t *assem)
      */
     litton_drum_image_align(&(assem->drum));
     word = ((litton_word_t)(assem->drum.posn.posn & 0xFF)) << 32;
-    word |= ((litton_word_t)LOP_OA) << 16;
+    word |= ((litton_word_t)opcode) << 16;
     word |= ((litton_word_t)(LOP_JC | (assem->drum.posn.posn + 1)));
     litton_drum_image_add_word(&(assem->drum), word);
     return 1;
 }
 
 /**
- * @brief Handle the "oiw" psuedo-opcode: output immediate and wait.
+ * @brief Handle the "oaow" psuedo-opcode: output accumulator with odd
+ * parity and wait.
  *
  * @param[in] assem The assembler state.
  *
  * @return Non-zero on success, zero on error.
  */
-static int litton_assem_oiw(litton_assem_t *assem)
+static int litton_assem_oaow(litton_assem_t *assem)
+{
+    return litton_assem_oa_wait(assem, LOP_OA);
+}
+
+/**
+ * @brief Handle the "oaew" psuedo-opcode: output accumulator with even
+ * parity and wait.
+ *
+ * @param[in] assem The assembler state.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oaew(litton_assem_t *assem)
+{
+    return litton_assem_oa_wait(assem, LOP_OAE);
+}
+
+/**
+ * @brief Handle the "oaw" psuedo-opcode: output accumulator and wait.
+ *
+ * @param[in] assem The assembler state.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oaw(litton_assem_t *assem)
+{
+    return litton_assem_oa_wait(assem, LOP_OA);
+}
+
+/**
+ * @brief Handle the output immediate and wait psuedo-opcodes.
+ *
+ * @param[in] assem The assembler state.
+ * @param[in] parity The parity to use.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oi_wait(litton_assem_t *assem, litton_parity_t parity)
 {
     int64_t value;
     litton_word_t word;
@@ -776,12 +816,51 @@ static int litton_assem_oiw(litton_assem_t *assem)
      *
      * If we align the drum first, then "ju label1" can be done implicitly.
      */
+    value = litton_add_parity(value, parity);
     litton_drum_image_align(&(assem->drum));
     word = ((litton_word_t)(assem->drum.posn.posn & 0xFF)) << 32;
     word |= ((litton_word_t)(LOP_OI | value)) << 16;
     word |= ((litton_word_t)(LOP_JC | (assem->drum.posn.posn + 1)));
     litton_drum_image_add_word(&(assem->drum), word);
     return 1;
+}
+
+/**
+ * @brief Handle the "oiow" psuedo-opcode: output immediate with odd
+ * parity and wait.
+ *
+ * @param[in] assem The assembler state.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oiow(litton_assem_t *assem)
+{
+    return litton_assem_oi_wait(assem, LITTON_PARITY_ODD);
+}
+
+/**
+ * @brief Handle the "oiew" psuedo-opcode: output immediate with even
+ * parity and wait.
+ *
+ * @param[in] assem The assembler state.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oiew(litton_assem_t *assem)
+{
+    return litton_assem_oi_wait(assem, LITTON_PARITY_EVEN);
+}
+
+/**
+ * @brief Handle the "oiw" psuedo-opcode: output immediate and wait.
+ *
+ * @param[in] assem The assembler state.
+ *
+ * @return Non-zero on success, zero on error.
+ */
+static int litton_assem_oiw(litton_assem_t *assem)
+{
+    return litton_assem_oi_wait(assem, LITTON_PARITY_NONE);
 }
 
 /**
@@ -813,7 +892,11 @@ static litton_pseudo_opcode_t const litton_pseudo_opcodes[] = {
 
     /* Pseudo opcodes */
     {"isw",         litton_assem_isw},
+    {"oaow",        litton_assem_oaow},
+    {"oaew",        litton_assem_oaew},
     {"oaw",         litton_assem_oaw},
+    {"oiow",        litton_assem_oiow},
+    {"oiew",        litton_assem_oiew},
     {"oiw",         litton_assem_oiw},
 
     /* List terminator */
