@@ -24,10 +24,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-void litton_init(litton_state_t *state)
+void litton_clear_memory(litton_state_t *state)
 {
-    /* Clear the machine state */
-    memset(state, 0, sizeof(litton_state_t));
+    /* Clear the drum */
+    memset(state->drum, 0, sizeof(state->drum));
 
     /* Set the default entry point at reset time to the last word in memory */
     state->entry_point = LITTON_DRUM_MAX_SIZE - 1;
@@ -47,6 +47,12 @@ void litton_init(litton_state_t *state)
 
     /* Reset the machine, which will effect a jump to the entry point */
     litton_reset(state);
+}
+
+void litton_init(litton_state_t *state)
+{
+    memset(state, 0, sizeof(litton_state_t));
+    litton_clear_memory(state);
 }
 
 void litton_free(litton_state_t *state)

@@ -45,6 +45,14 @@ Once the system starts, press HALT, then READY, then RUN to start the program.
 See the [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf)
 for more information on using the computer from the front panel.
 
+The GUI version of the emulator can load and save drum images and mount tapes.
+It expects the `zenity` program to be on the PATH to handle the file dialog.
+If this isn't installed already, then do the following:
+
+    sudo apt install zenity
+
+The machine must be halted to use the DRUM and TAPE buttons.
+
 ## Assembler
 
 There is a cross-assembler for low-level Litton machine code in

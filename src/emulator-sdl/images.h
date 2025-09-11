@@ -160,6 +160,22 @@ extern "C" {
 #define BUTTON_BIT_RESET_X 454
 #define BUTTON_BIT_RESET_Y 268
 
+/* Position of the DRUM LOAD button */
+#define BUTTON_DRUM_LOAD_X 454
+#define BUTTON_DRUM_LOAD_Y 495
+
+/* Position of the DRUM SAVE button */
+#define BUTTON_DRUM_SAVE_X 510
+#define BUTTON_DRUM_SAVE_Y 495
+
+/* Position of the TAPE IN button */
+#define BUTTON_TAPE_IN_X 616
+#define BUTTON_TAPE_IN_Y 495
+
+/* Position of the TAPE OUT button */
+#define BUTTON_TAPE_OUT_X 671
+#define BUTTON_TAPE_OUT_Y 495
+
 /* Position of the INSTRUCTION lamp */
 #define LAMP_INST_X 311
 #define LAMP_INST_Y 122

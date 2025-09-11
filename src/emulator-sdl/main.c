@@ -35,7 +35,7 @@
 
 static void usage(const char *progname)
 {
-    fprintf(stderr, "Usage: %s [options] image.drum\n\n", progname);
+    fprintf(stderr, "Usage: %s [options] [image.drum]\n\n", progname);
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -m\n");
     fprintf(stderr, "        Start in maximised mode.\n");
@@ -49,6 +49,12 @@ static void usage(const char *progname)
 
 /** Size of the keyboard input buffer */
 #define KEYBOARD_BUFFER_SIZE 16
+
+/* Extra buttons that are unique to this UI */
+#define LITTON_BUTTON_DRUM_LOAD 0x10000000U
+#define LITTON_BUTTON_DRUM_SAVE 0x20000000U
+#define LITTON_BUTTON_TAPE_IN   0x40000000U
+#define LITTON_BUTTON_TAPE_OUT  0x80000000U
 
 /**
  * @brief State information for managing the SDL user interface.
@@ -475,6 +481,22 @@ static void draw_screen(void)
             (BUTTON_ACCUM_0_X, BUTTON_ACCUM_0_Y,
              BUTTON_ACCUM_0_WIDTH, BUTTON_ACCUM_0_HEIGHT);
         break;
+
+    case LITTON_BUTTON_DRUM_LOAD:
+        draw_pressed_button(BUTTON_DRUM_LOAD_X, BUTTON_DRUM_LOAD_Y);
+        break;
+
+    case LITTON_BUTTON_DRUM_SAVE:
+        draw_pressed_button(BUTTON_DRUM_SAVE_X, BUTTON_DRUM_SAVE_Y);
+        break;
+
+    case LITTON_BUTTON_TAPE_IN:
+        draw_pressed_button(BUTTON_TAPE_IN_X, BUTTON_TAPE_IN_Y);
+        break;
+
+    case LITTON_BUTTON_TAPE_OUT:
+        draw_pressed_button(BUTTON_TAPE_OUT_X, BUTTON_TAPE_OUT_Y);
+        break;
     }
 
     /* Draw the text for the printer output */
@@ -607,6 +629,22 @@ static uint32_t get_button(int x, int y)
             (x, y, BUTTON_ACCUM_0_X, BUTTON_ACCUM_0_Y,
              BUTTON_ACCUM_0_WIDTH, BUTTON_ACCUM_0_HEIGHT)) {
         return LITTON_BUTTON_ACCUM_0;
+    } else if (in_button_rect
+            (x, y, BUTTON_DRUM_LOAD_X, BUTTON_DRUM_LOAD_Y,
+             BUTTON_WIDTH, BUTTON_HEIGHT)) {
+        return LITTON_BUTTON_DRUM_LOAD;
+    } else if (in_button_rect
+            (x, y, BUTTON_DRUM_SAVE_X, BUTTON_DRUM_SAVE_Y,
+             BUTTON_WIDTH, BUTTON_HEIGHT)) {
+        return LITTON_BUTTON_DRUM_SAVE;
+    } else if (in_button_rect
+            (x, y, BUTTON_TAPE_IN_X, BUTTON_TAPE_IN_Y,
+             BUTTON_WIDTH, BUTTON_HEIGHT)) {
+        return LITTON_BUTTON_TAPE_IN;
+    } else if (in_button_rect
+            (x, y, BUTTON_TAPE_OUT_X, BUTTON_TAPE_OUT_Y,
+             BUTTON_WIDTH, BUTTON_HEIGHT)) {
+        return LITTON_BUTTON_TAPE_OUT;
     }
     return 0;
 }
@@ -647,13 +685,21 @@ static void print_ascii(uint8_t ch)
     }
 }
 
+static void print_string(const char *str)
+{
+    while (*str != '\0') {
+        print_ascii(*str);
+        ++str;
+    }
+}
+
 static void printer_output
     (litton_state_t *state, litton_device_t *device,
      uint8_t value, litton_parity_t parity)
 {
-    (void)state;
+    (void)device;
     value = litton_remove_parity(value, parity);
-    if (device->charset == LITTON_CHARSET_EBS1231) {
+    if (state->printer_charset == LITTON_CHARSET_EBS1231) {
         /* Does this look like a print wheel position? */
         uint8_t position = litton_print_wheel_position(value);
         if (position != 0) {
@@ -682,10 +728,7 @@ static void printer_output
                 print_ascii(ch);
             } else if (ch == -2) {
                 /* Multi-character string */
-                while (*string_form != '\0') {
-                    print_ascii(*string_form);
-                    ++string_form;
-                }
+                print_string(string_form);
             }
         }
     } else {
@@ -872,6 +915,92 @@ static void create_devices(void)
     litton_add_device(&machine, device);
 }
 
+/* Use the external tool "zenity" to handle the file dialog */
+#define DRUM_LOAD_CMD "zenity --file-selection --file-filter='*.drum'"
+#define DRUM_SAVE_CMD "zenity --file-selection --save --confirm-overwrite --file-filter='*.drum'"
+#define TAPE_IN_CMD "zenity --file-selection --file-filter='*.tape'"
+#define TAPE_OUT_CMD "zenity --file-selection --save --confirm-overwrite --file-filter='*.tape'"
+
+static char *ask_for_filename(const char *cmdline)
+{
+    FILE *file = popen(cmdline, "r");
+    char buffer[BUFSIZ];
+    size_t len;
+    int error;
+    if (!file) {
+        print_string("popen error");
+        return 0;
+    }
+    error = (fgets(buffer, sizeof(buffer), file) == NULL);
+    error |= (pclose(file) != 0);
+    if (error) {
+        return 0;
+    }
+    len = strlen(buffer);
+    while (len > 0 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n')) {
+        --len;
+    }
+    buffer[len] = '\0';
+    return strdup(buffer);
+}
+
+static void handle_other_button(uint32_t button)
+{
+    char *filename = 0;
+    if (!litton_is_halted(&machine)) {
+        /* Machine must be halted for this */
+        return;
+    }
+    switch (button) {
+    case LITTON_BUTTON_DRUM_LOAD:
+        filename = ask_for_filename(DRUM_LOAD_CMD);
+        if (filename) {
+            SDL_LockMutex(ui.mutex);
+            litton_clear_memory(&machine);
+            if (litton_load_drum(&machine, filename, 0)) {
+                litton_reset(&machine);
+                SDL_UnlockMutex(ui.mutex);
+                print_string(filename);
+                print_string(" loaded\r\n");
+            } else {
+                SDL_UnlockMutex(ui.mutex);
+                print_string(filename);
+                print_string(" failed to load\r\n");
+            }
+        }
+        break;
+
+    case LITTON_BUTTON_DRUM_SAVE:
+        filename = ask_for_filename(DRUM_SAVE_CMD);
+        if (filename) {
+            SDL_LockMutex(ui.mutex);
+            if (litton_save_drum(&machine, filename)) {
+                SDL_UnlockMutex(ui.mutex);
+                print_string(filename);
+                print_string(" saved\r\n");
+            } else {
+                SDL_UnlockMutex(ui.mutex);
+                print_string(filename);
+                print_string(" failed to save\r\n");
+            }
+        }
+        break;
+
+    case LITTON_BUTTON_TAPE_IN:
+        filename = ask_for_filename(TAPE_IN_CMD);
+        // TODO
+        break;
+
+    case LITTON_BUTTON_TAPE_OUT:
+        filename = ask_for_filename(TAPE_OUT_CMD);
+        // TODO
+        break;
+    }
+    if (filename) {
+        free(filename);
+    }
+}
+
 static int run_litton(void *data)
 {
     litton_state_t *state = (litton_state_t *)data;
@@ -967,11 +1096,6 @@ int main(int argc, char *argv[])
             litton_free(&machine);
             return 1;
         }
-    } else {
-        fprintf(stderr, "Missing drum image file\n");
-        usage(progname);
-        litton_free(&machine);
-        return 1;
     }
     create_devices();
 
@@ -1109,6 +1233,7 @@ int main(int argc, char *argv[])
                     SDL_LockMutex(ui.mutex);
                     litton_press_button(&machine, ui.selected_button);
                     SDL_UnlockMutex(ui.mutex);
+                    handle_other_button(ui.selected_button);
                 }
                 ui.pressed_button = 0;
                 ui.selected_button = 0;

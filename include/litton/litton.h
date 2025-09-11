@@ -815,6 +815,24 @@ void litton_set_scratchpad
 int litton_load_drum
     (litton_state_t *state, const char *filename, uint8_t *use_mask);
 
+/**
+ * @brief Saves the contents of the drum to a file.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] filename The name of the drum image file to save to.
+ *
+ * @return Non-zero if the drum image was loaded, zero if the file
+ * could not be opened.
+ */
+int litton_save_drum(litton_state_t *state, const char *filename);
+
+/**
+ * @brief Clear the contents of memory ready to load a new drum image.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_clear_memory(litton_state_t *state);
+
 /*----------------------------------------------------------------------*/
 
 /*
@@ -1040,9 +1058,9 @@ uint8_t litton_print_wheel_position(uint8_t code);
 /** Register select switch, Accumulator 16 */
 #define LITTON_BUTTON_ACCUM_16      0x02000000U
 /** Register select switch, Accumulator 8 */
-#define LITTON_BUTTON_ACCUM_8       0x08000000U
+#define LITTON_BUTTON_ACCUM_8       0x04000000U
 /** Register select switch, Accumulator 0 */
-#define LITTON_BUTTON_ACCUM_0       0x10000000U
+#define LITTON_BUTTON_ACCUM_0       0x08000000U
 
 /**
  * @brief Get the state of all status lights on the front panel.

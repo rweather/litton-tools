@@ -125,3 +125,33 @@ int litton_load_drum
     fclose(file);
     return ok;
 }
+
+int litton_save_drum(litton_state_t *state, const char *filename)
+{
+    FILE *file;
+    unsigned addr;
+    file = fopen(filename, "w");
+    if (!file) {
+        perror(filename);
+        return 0;
+    }
+    fprintf(file, "#Litton-Drum-Image\n");
+    fprintf(file, "#Drum-Size: %d\n", (int)(state->drum_size));
+    fprintf(file, "#Entry-Point: %03X\n", state->entry_point);
+    fprintf(file, "#Printer-Character-Set: %s\n",
+            litton_charset_to_name(state->printer_charset));
+    if (state->printer_id != 0) {
+        fprintf(file, "#Printer-Device: %02X\n", state->printer_id);
+    }
+    fprintf(file, "#Keyboard-Character-Set: %s\n",
+            litton_charset_to_name(state->keyboard_charset));
+    if (state->keyboard_id != 0) {
+        fprintf(file, "#Keyboard-Device: %02X\n", state->keyboard_id);
+    }
+    for (addr = 0; addr < state->drum_size; ++addr) {
+        fprintf(file, "%03X:%010LX\n", addr,
+                (unsigned long long)(state->drum[addr]));
+    }
+    fclose(file);
+    return 1;
+}
