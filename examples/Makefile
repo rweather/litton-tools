@@ -8,6 +8,7 @@ PROGRAMS = \
 	fibonacci.drum \
 	hellorld.drum \
 	hello_world.drum \
+	hello_world_pointers.drum \
 
 all: $(PROGRAMS)
 
@@ -19,6 +20,9 @@ fibonacci.drum: fibonacci.las
 
 hello_world.drum: hello_world.las
 	$(LITTON_AS) -o hello_world.drum hello_world.las
+
+hello_world_pointers.drum: hello_world_pointers.las
+	$(LITTON_AS) -o hello_world_pointers.drum hello_world_pointers.las
 
 hellorld.drum: hellorld.las
 	$(LITTON_AS) -o hellorld.drum hellorld.las
