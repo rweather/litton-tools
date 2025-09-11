@@ -760,7 +760,7 @@ static int litton_assem_oa_wait(litton_assem_t *assem, uint16_t opcode)
  */
 static int litton_assem_oaow(litton_assem_t *assem)
 {
-    return litton_assem_oa_wait(assem, LOP_OA);
+    return litton_assem_oa_wait(assem, LOP_OAO);
 }
 
 /**
