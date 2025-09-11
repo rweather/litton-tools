@@ -37,7 +37,9 @@ getkey:
 gotkey:
     isw printer         ; Select the printer device for output.
     bls 32
+    st 1
     oaow                ; Output A to the printer.
+    ca 1
     cm
     ad const_CR
     tz

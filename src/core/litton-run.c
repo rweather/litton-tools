@@ -641,8 +641,7 @@ static litton_step_result_t litton_perform_io
             litton_add_io_timing(state);
             state->B = litton_add_parity(state->A >> 32, LITTON_PARITY_ODD);
             litton_output_to_device(state, state->B, LITTON_PARITY_ODD);
-            state->A = state->A & 0xFFFFFFFFUL;
-            state->A |= ((litton_word_t)(state->B)) << 32;
+            state->A = (state->A << 8) & 0xFFFFFFFF00ULL;
             state->K = 1;
         } else {
             /* Output device is currently busy */
@@ -658,8 +657,7 @@ static litton_step_result_t litton_perform_io
             litton_add_io_timing(state);
             state->B = litton_add_parity(state->A >> 32, LITTON_PARITY_EVEN);
             litton_output_to_device(state, state->B, LITTON_PARITY_EVEN);
-            state->A = state->A & 0xFFFFFFFFUL;
-            state->A |= ((litton_word_t)(state->B)) << 32;
+            state->A = (state->A << 8) & 0xFFFFFFFF00ULL;
             state->K = 1;
         } else {
             /* Output device is currently busy */
@@ -675,8 +673,7 @@ static litton_step_result_t litton_perform_io
             litton_add_io_timing(state);
             state->B = (uint8_t)(state->A >> 32);
             litton_output_to_device(state, state->B, LITTON_PARITY_NONE);
-            state->A = state->A & 0xFFFFFFFFUL;
-            state->A |= ((litton_word_t)(state->B)) << 32;
+            state->A = (state->A << 8) & 0xFFFFFFFF00ULL;
             state->K = 1;
         } else {
             /* Output device is currently busy */
@@ -708,6 +705,7 @@ static litton_step_result_t litton_perform_io
             if (!litton_is_output_busy(state)) {
                 litton_add_opcode_timing(state, 4);
                 state->B = (uint8_t)(state->A >> 32);
+                state->A = (state->A << 8) & 0xFFFFFFFF00ULL;
                 litton_select_device(state, state->B);
                 state->K = 1;
             } else {
@@ -721,6 +719,7 @@ static litton_step_result_t litton_perform_io
             /* Accumulator select */
             litton_add_opcode_timing(state, 4);
             state->B = (uint8_t)(state->A >> 32);
+            state->A = (state->A << 8) & 0xFFFFFFFF00ULL;
             litton_select_device(state, state->B);
             state->K = 1;
             break;
