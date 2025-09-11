@@ -127,14 +127,16 @@ static void litton_single_left_shift
     (litton_state_t *state, litton_word_t *word, litton_word_t K, uint16_t N)
 {
     litton_word_t A = *word;
+    litton_word_t final_K = 0;
     while (N > 0) {
         A = (A << 1) | K;
-        K = (A >> LITTON_WORD_BITS);
+        final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
+        K = 0;
         --N;
     }
     *word = A;
-    state->K = K;
+    state->K = final_K;
 }
 
 static void litton_double_left_shift
@@ -143,33 +145,35 @@ static void litton_double_left_shift
 {
     litton_word_t A = *word1;
     litton_word_t B = *word2;
+    litton_word_t final_K = 0;
     while (N > 0) {
         B = (B << 1) | K;
-        K = (B >> LITTON_WORD_BITS);
+        final_K = (B >> LITTON_WORD_BITS);
         B &= LITTON_WORD_MASK;
-        A = (A << 1) | K;
-        K = (A >> LITTON_WORD_BITS);
+        A = (A << 1) | final_K;
+        final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
+        K = 0;
         --N;
     }
     *word1 = A;
     *word2 = B;
-    state->K = K;
+    state->K = final_K;
 }
 
 static void litton_single_right_shift
     (litton_state_t *state, litton_word_t *word, litton_word_t K, uint16_t N)
 {
     litton_word_t A = *word;
-    litton_word_t nextK;
+    litton_word_t final_K = 0;
     while (N > 0) {
-        nextK = A & 1;
+        final_K = A & 1;
         A = (A >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = nextK;
+        K = 0;
         --N;
     }
     *word = A;
-    state->K = K;
+    state->K = final_K;
 }
 
 static void litton_double_right_shift
@@ -178,19 +182,19 @@ static void litton_double_right_shift
 {
     litton_word_t A = *word1;
     litton_word_t B = *word2;
-    litton_word_t nextK;
+    litton_word_t final_K = 0;
     while (N > 0) {
-        nextK = A & 1;
+        final_K = A & 1;
         A = (A >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = nextK;
-        nextK = B & 1;
+        K = final_K;
+        final_K = B & 1;
         B = (B >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = nextK;
+        K = 0;
         --N;
     }
     *word1 = A;
     *word2 = B;
-    state->K = K;
+    state->K = final_K;
 }
 
 static litton_step_result_t litton_binary_shift
@@ -207,7 +211,9 @@ static litton_step_result_t litton_binary_shift
     case LOP_BLSK:
         /* Binary left single shift of A */
         litton_add_opcode_timing(state, 3 + (insn & 0x7F) + 1);
-        litton_single_left_shift(state, &(state->A), K, (insn & 0x7F) + 1);
+        litton_single_left_shift
+            (state, &(state->A),
+             (insn & 0xFF80) == LOP_BLS ? 0 : K, (insn & 0x7F) + 1);
         break;
 
     case LOP_BLSS:
@@ -218,7 +224,9 @@ static litton_step_result_t litton_binary_shift
         if ((insn & 0x7F) != 0) {
             return LITTON_STEP_ILLEGAL;
         }
-        litton_single_left_shift(state, &(state->drum[S]), K, 1);
+        litton_single_left_shift
+            (state, &(state->drum[S]),
+             (insn & 0xFF80) == LOP_BLSS ? 0 : K, 1);
         break;
 
     case LOP_BLD:
@@ -228,7 +236,8 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_left_shift
-            (state, &(state->drum[0]), &(state->drum[1]), K, (insn & 0x7F) + 1);
+            (state, &(state->drum[0]), &(state->drum[1]),
+             (insn & 0xFF80) == LOP_BLD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
     case LOP_BLDS:
@@ -240,14 +249,17 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_left_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]), K, 1);
+            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]),
+             (insn & 0xFF80) == LOP_BLDS ? 0 : K, 1);
         break;
 
     case LOP_BRS:
     case LOP_BRSK:
         /* Binary right single shift of A */
         litton_add_opcode_timing(state, 3 + (insn & 0x7F) + 1);
-        litton_single_right_shift(state, &(state->A), K, (insn & 0x7F) + 1);
+        litton_single_right_shift
+            (state, &(state->A),
+             (insn & 0xFF80) == LOP_BRS ? 0 : K, (insn & 0x7F) + 1);
         break;
 
     case LOP_BRSS:
@@ -258,7 +270,9 @@ static litton_step_result_t litton_binary_shift
         if ((insn & 0x7F) != 0) {
             return LITTON_STEP_ILLEGAL;
         }
-        litton_single_right_shift(state, &(state->drum[S]), K, 1);
+        litton_single_right_shift
+            (state, &(state->drum[S]),
+             (insn & 0xFF80) == LOP_BRSS ? 0 : K, 1);
         break;
 
     case LOP_BRD:
@@ -268,7 +282,8 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_right_shift
-            (state, &(state->drum[0]), &(state->drum[1]), K, (insn & 0x7F) + 1);
+            (state, &(state->drum[0]), &(state->drum[1]),
+             (insn & 0xFF80) == LOP_BRD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
     case LOP_BRDS:
@@ -280,7 +295,8 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_right_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]), K, 1);
+            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]),
+             (insn & 0xFF80) == LOP_BRDS ? 0 : K, 1);
         break;
 
     default:
