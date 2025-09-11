@@ -114,6 +114,7 @@ Documentation for the tools in this repository:
 
 * [Litton Drum Image File Format](doc/drum-image-format.md)
 * [Litton Low-Level Cross Assembler](doc/assembler-low-level.md)
+* [Explainer for Litton Instruction Precession](doc/precession.md)
 
 ## TODO
 
