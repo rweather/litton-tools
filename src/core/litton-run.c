@@ -768,6 +768,15 @@ litton_step_result_t litton_step(litton_state_t *state)
     }
     ++(state->spin_counter);
 
+    /* Dump the state of the registers before the instruction */
+    if (state->disassemble) {
+        fprintf(stderr,
+                "CR=%02X, I=%010LX, A=%010LX, B=%02X, K=%d, P=%d, PC=",
+                state->CR, (unsigned long long)(state->I),
+                (unsigned long long)(state->A), state->B,
+                state->K, state->P);
+    }
+
     /* Decode the next opcode in the command register (CR) */
     if (state->CR < 0x40) {
         /* Single-byte instruction */

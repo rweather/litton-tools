@@ -39,6 +39,8 @@ static void usage(const char *progname)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -m\n");
     fprintf(stderr, "        Start in maximised mode.\n");
+    fprintf(stderr, "    -v\n");
+    fprintf(stderr, "        Verbose disassembly of instructions as they are executed.\n");
 }
 
 /** Maximum number of lines to keep in the printer scroll-back buffer */
@@ -1093,9 +1095,11 @@ int main(int argc, char *argv[])
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "m")) != -1) {
+    while ((opt = getopt(argc, argv, "mv")) != -1) {
         if (opt == 'm') {
             maximized_mode = 1;
+        } else if (opt == 'v') {
+            machine.disassemble = 1;
         } else {
             usage(progname);
             litton_free(&machine);

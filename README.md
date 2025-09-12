@@ -29,7 +29,8 @@ emulator on the examples to check basic functionality:
     litton-run examples/hello_world.drum
     litton-run examples/fibonacci.drum
 
-Use the `-v` (verbose) option to disassemble instructions as they are executed:
+Use the `-v` (verbose) option to print the register contents and disassemble
+instructions as each instruction is executed:
 
     litton-run -v examples/fibonacci.drum
 
