@@ -617,7 +617,11 @@ static int litton_assem_printer(litton_assem_t *assem)
             (assem, &(assem->drum.printer_id),
              &(assem->drum.printer_charset), "printer")) {
         /* Also set the active character set based on the printer */
-        assem->charset = assem->drum.printer_charset;
+        if (assem->charset == LITTON_CHARSET_HEX) {
+            assem->charset = LITTON_CHARSET_EBS1231;
+        } else {
+            assem->charset = assem->drum.printer_charset;
+        }
         return 1;
     } else {
         return 0;

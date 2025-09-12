@@ -190,7 +190,9 @@ static void litton_printer_output
      uint8_t value, litton_parity_t parity)
 {
     (void)state;
-    value = litton_remove_parity(value, parity);
+    if (device->charset != LITTON_CHARSET_HEX) {
+        value = litton_remove_parity(value, parity);
+    }
     if (device->charset == LITTON_CHARSET_EBS1231) {
         /* Does this look like a print wheel position? */
         uint8_t position = litton_print_wheel_position(value);
@@ -235,6 +237,17 @@ static void litton_printer_output
                 fputs(string_form, stdout);
                 device->print_position += strlen(string_form);
             }
+        }
+    } else if (device->charset == LITTON_CHARSET_HEX) {
+        /* Output the bytes in hexadecimal */
+        if (device->print_position > 0) {
+            putc(' ', stdout);
+        }
+        printf("%02X", value);
+        ++(device->print_position);
+        if (device->print_position >= 16) {
+            printf("\n");
+            device->print_position = 0;
         }
     } else {
         /* Assume plain ASCII codes as input */
@@ -480,6 +493,7 @@ int litton_char_to_charset
         return ch & 0xFF;
 
     case LITTON_CHARSET_EBS1231:
+    case LITTON_CHARSET_HEX: /* Not supported for input at the moment */
         /* Scan the EBS1231 mapping table to find a match */
         for (ch = 0; ch < 128; ++ch) {
             if (litton_ebs1231_match
@@ -496,6 +510,40 @@ int litton_char_to_charset
 int litton_char_from_charset
     (int ch, litton_charset_t charset, const char **string_form)
 {
+    static const char * const hex_bytes[] = {
+        "00", "01", "02", "03", "04", "05", "06", "07",
+        "08", "09", "0A", "0B", "0C", "0D", "0E", "0F",
+        "10", "11", "12", "13", "14", "15", "16", "17",
+        "18", "19", "1A", "1B", "1C", "1D", "1E", "1F",
+        "20", "21", "22", "23", "24", "25", "26", "27",
+        "28", "29", "2A", "2B", "2C", "2D", "2E", "2F",
+        "30", "31", "32", "33", "34", "35", "36", "37",
+        "38", "39", "3A", "3B", "3C", "3D", "3E", "3F",
+        "40", "41", "42", "43", "44", "45", "46", "47",
+        "48", "49", "4A", "4B", "4C", "4D", "4E", "4F",
+        "50", "51", "52", "53", "54", "55", "56", "57",
+        "58", "59", "5A", "5B", "5C", "5D", "5E", "5F",
+        "60", "61", "62", "63", "64", "65", "66", "67",
+        "68", "69", "6A", "6B", "6C", "6D", "6E", "6F",
+        "70", "71", "72", "73", "74", "75", "76", "77",
+        "78", "79", "7A", "7B", "7C", "7D", "7E", "7F",
+        "80", "81", "82", "83", "84", "85", "86", "87",
+        "88", "89", "8A", "8B", "8C", "8D", "8E", "8F",
+        "90", "91", "92", "93", "94", "95", "96", "97",
+        "98", "99", "9A", "9B", "9C", "9D", "9E", "9F",
+        "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7",
+        "A8", "A9", "AA", "AB", "AC", "AD", "AE", "AF",
+        "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7",
+        "B8", "B9", "BA", "BB", "BC", "BD", "BE", "BF",
+        "C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7",
+        "C8", "C9", "CA", "CB", "CC", "CD", "CE", "CF",
+        "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7",
+        "D8", "D9", "DA", "DB", "DC", "DD", "DE", "DF",
+        "E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7",
+        "E8", "E9", "EA", "EB", "EC", "ED", "EE", "EF",
+        "F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7",
+        "F8", "F9", "FA", "FB", "FC", "FD", "FE", "FF"
+    };
     switch (charset) {
     case LITTON_CHARSET_ASCII:
     case LITTON_CHARSET_UASCII:
@@ -511,6 +559,10 @@ int litton_char_from_charset
             /* Caller needs to use the string form instead */
             return -2;
         }
+
+    case LITTON_CHARSET_HEX:
+        *string_form = hex_bytes[ch & 0xFF];
+        return -2;
     }
     return ch;
 }
@@ -530,6 +582,10 @@ int litton_charset_from_name
         *charset = LITTON_CHARSET_EBS1231;
         return 1;
     }
+    if (litton_name_match("HEX", name, name_len)) {
+        *charset = LITTON_CHARSET_HEX;
+        return 1;
+    }
     return 0;
 }
 
@@ -539,6 +595,7 @@ const char *litton_charset_to_name(litton_charset_t charset)
     case LITTON_CHARSET_ASCII:      return "ASCII";
     case LITTON_CHARSET_UASCII:     return "UASCII";
     case LITTON_CHARSET_EBS1231:    return "EBS1231";
+    case LITTON_CHARSET_HEX:        return "HEX";
     }
     return "ASCII"; /* Just in case */
 }

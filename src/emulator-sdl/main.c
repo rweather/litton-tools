@@ -698,7 +698,9 @@ static void printer_output
      uint8_t value, litton_parity_t parity)
 {
     (void)device;
-    value = litton_remove_parity(value, parity);
+    if (state->printer_charset != LITTON_CHARSET_HEX) {
+        value = litton_remove_parity(value, parity);
+    }
     if (state->printer_charset == LITTON_CHARSET_EBS1231) {
         /* Does this look like a print wheel position? */
         uint8_t position = litton_print_wheel_position(value);
@@ -730,6 +732,18 @@ static void printer_output
                 /* Multi-character string */
                 print_string(string_form);
             }
+        }
+    } else if (state->printer_charset == LITTON_CHARSET_HEX) {
+        /* Output bytes in hexadecimal */
+        static const char hex_chars[] = "0123456789ABCDEF";
+        if (ui.printer_column > 0) {
+            print_ascii(' ');
+        }
+        print_ascii(hex_chars[(value >> 4) & 0x0F]);
+        print_ascii(hex_chars[value & 0x0F]);
+        if (ui.printer_column >= 47) {
+            print_ascii('\r');
+            print_ascii('\n');
         }
     } else {
         /* Assume plain ASCII codes as input */

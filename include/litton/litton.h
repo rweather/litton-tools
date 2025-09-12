@@ -401,7 +401,11 @@ typedef enum
     LITTON_CHARSET_UASCII,
 
     /** Charset from Appendix V of the EBS/1231 System Programming Manual */
-    LITTON_CHARSET_EBS1231
+    LITTON_CHARSET_EBS1231,
+
+    /** Dump as hexadecimal bytes */
+    LITTON_CHARSET_HEX
+
 
 } litton_charset_t;
 
