@@ -2,7 +2,7 @@
 ; Calculate and print the Fibonacci sequence up to the limit of 40-bit numbers.
 ;
     title "Fibonacci"
-    printer $11,"EBS1231"
+    printer $41,"EBS1231"
     drumsize 2048
     org $700
 start:

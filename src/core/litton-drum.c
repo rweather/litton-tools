@@ -74,9 +74,7 @@ int litton_load_drum
                 }
             } else if (!strncmp(buffer, "#Printer-Device:", 16)) {
                 printer_device = strtoul(buffer + 16, NULL, 16);
-                if (printer_device > 0xFF ||
-                        (printer_device & 0xF0) == 0 ||
-                        (printer_device & 0x0F) == 0) {
+                if (!litton_is_valid_device_id(printer_device)) {
                     fprintf(stderr, "%s:%lu: invalid printer device identifier\n",
                             filename, line);
                     ok = 0;
@@ -94,9 +92,7 @@ int litton_load_drum
                 }
             } else if (!strncmp(buffer, "#Keyboard-Device:", 17)) {
                 keyboard_device = strtoul(buffer + 17, NULL, 16);
-                if (keyboard_device > 0xFF ||
-                        (keyboard_device & 0xF0) == 0 ||
-                        (keyboard_device & 0x0F) == 0) {
+                if (!litton_is_valid_device_id(keyboard_device)) {
                     fprintf(stderr, "%s:%lu: invalid keyboard identifier\n",
                             filename, line);
                     ok = 0;

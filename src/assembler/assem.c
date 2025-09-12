@@ -568,8 +568,7 @@ static int litton_assem_device
     if (!litton_assem_eval_expr(assem, &value, 0, 255)) {
         return 0;
     }
-    if ((value & 0xF0) == 0 || (value & 0x0F) == 0) {
-        /* Must have non-zero bits in the high and low nibbles */
+    if (!litton_is_valid_device_id(value)) {
         litton_error(&(assem->tokeniser), "invalid device identifier");
         return 0;
     }
@@ -700,8 +699,7 @@ static int litton_assem_isw(litton_assem_t *assem)
     if (!litton_assem_eval_expr(assem, &value, 0, 255)) {
         return 0;
     }
-    if ((value & 0xF0) == 0 || (value & 0x0F) == 0) {
-        /* Must have non-zero bits in the high and low nibbles */
+    if (!litton_is_valid_device_id(value)) {
         litton_error(&(assem->tokeniser), "invalid device identifier");
         return 0;
     }

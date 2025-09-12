@@ -1,5 +1,5 @@
     title "HELLORLD!"
-    printer $11,"EBS1231"
+    printer $41,"EBS1231"
     drumsize 2048
     org $300
 start:

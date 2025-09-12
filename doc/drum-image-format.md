@@ -19,9 +19,9 @@ example in this repository:
     #Title: Hello, World!
     #Drum-Size: 2048
     #Entry-Point: 300
-    #Printer-Character-Set: ASCII
-    #Printer-Device: 11
-    300:007C11F301
+    #Printer-Character-Set: EBS1231
+    #Printer-Device: 41
+    300:007C41F301
     301:017848F302
     302:027865F303
     303:03786CF304

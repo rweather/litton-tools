@@ -3,8 +3,8 @@
 #Drum-Size: 2048
 #Entry-Point: 300
 #Printer-Character-Set: EBS1231
-#Printer-Device: 11
-300:007C11F301
+#Printer-Device: 41
+300:007C41F301
 301:028311B000
 302:038000400F
 303:0494090D0A

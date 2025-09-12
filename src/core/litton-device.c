@@ -608,3 +608,14 @@ uint8_t litton_print_wheel_position(uint8_t code)
         return 0;
     }
 }
+
+int litton_is_valid_device_id(uint8_t id)
+{
+    /* Either bit 6 or 7 must be non-zero */
+    if ((id & 0xC0) == 0) {
+        return 0;
+    }
+
+    /* Any of bits 0 to 5 must be non-zero */
+    return (id & 0x3F) != 0;
+}

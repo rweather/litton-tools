@@ -1,6 +1,6 @@
     title "Echo Test"
-    printer $11,"EBS1231"
-    keyboard $11,"EBS1231"
+    printer $41,"EBS1231"
+    keyboard $48,"EBS1231"
     org $F00
 start:
     isw printer         ; Select the printer device for output.

@@ -513,11 +513,17 @@ struct litton_device_s
                   uint8_t *value);
 };
 
-/** Default device number for the printer */
-#define LITTON_DEVICE_PRINTER   0x11 /* FIXME once the real number is known */
+/** Standard device number for the printer */
+#define LITTON_DEVICE_PRINTER   0x41
 
-/** Default device number for the keyboard */
-#define LITTON_DEVICE_KEYBOARD  0x11 /* FIXME once the real number is known */
+/** Standard device number for the tape punch */
+#define LITTON_DEVICE_PUNCH     0x42
+
+/** Standard device number for the keyboard */
+#define LITTON_DEVICE_KEYBOARD  0x48
+
+/** Standard device number for the tape reader */
+#define LITTON_DEVICE_READER    0x50
 
 /**
  * @brief Adds a device to the computer.
@@ -621,6 +627,15 @@ uint8_t litton_add_parity(uint8_t value, litton_parity_t parity);
  * @return The parity-removed version of @a value.
  */
 uint8_t litton_remove_parity(uint8_t value, litton_parity_t parity);
+
+/**
+ * @brief Determine if a device identifier is valid.
+ *
+ * @param[in] id The device identifier to check.
+ *
+ * @return Non-zero if @a id is valid; zero if not.
+ */
+int litton_is_valid_device_id(uint8_t id);
 
 /*----------------------------------------------------------------------*/
 
