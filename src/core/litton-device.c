@@ -24,6 +24,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
+#include <poll.h>
 
 void litton_add_device(litton_state_t *state, litton_device_t *device)
 {
@@ -278,28 +281,102 @@ void litton_add_printer
     litton_add_device(state, device);
 }
 
+typedef struct
+{
+    /** Parent class fields */
+    litton_device_t parent;
+
+    /** Non-zero if the device has been initialized */
+    int initialized;
+
+    /** Saved termios to restore when the program shuts down */
+    struct termios tio;
+
+} litton_keyboard_info_t;
+
+static void litton_keyboard_close
+    (litton_state_t *state, litton_device_t *device)
+{
+    litton_keyboard_info_t *keyboard = (litton_keyboard_info_t *)device;
+    (void)state;
+    if (keyboard->initialized > 0) {
+        tcsetattr(0, TCSANOW, &(keyboard->tio));
+        keyboard->initialized = 0;
+    }
+}
+
 static int litton_keyboard_input
     (litton_state_t *state, litton_device_t *device,
      uint8_t *value, litton_parity_t parity)
 {
-    // TODO
-    (void)state;
-    (void)device;
-    (void)value;
-    (void)parity;
-    return 0; /* Keyboard input is not ready */
+    litton_keyboard_info_t *keyboard = (litton_keyboard_info_t *)device;
+    struct pollfd fd;
+
+    /* Initialize the device the first time the program asks for input */
+    if (!keyboard->initialized) {
+        /* Flag set to -1 to indicate "not using raw mode"; override below */
+        keyboard->initialized = -1;
+        if (isatty(0) && isatty(1)) {
+            /* Turn on raw mode to get character-by-character input */
+            if (tcgetattr(0, &(keyboard->tio)) >= 0) {
+                struct termios raw = keyboard->tio;
+                cfmakeraw(&raw);
+                if (tcsetattr(0, TCSANOW, &raw) >= 0) {
+                    keyboard->initialized = 1;
+                }
+            }
+        }
+    }
+
+    /* Is there input available? */
+    fd.fd = 0;
+    fd.events = POLLIN;
+    fd.revents = 0;
+    if (poll(&fd, 1, 0) < 0 || (fd.revents & (POLLIN | POLLHUP)) != 0) {
+        char ch;
+        int size = read(0, &ch, 1);
+        if (size > 0) {
+            size_t posn = 0;
+            int ch2;
+            if (ch == 0x03) {
+                /* Special case for CTRL-C to clean up and exit the program.
+                 * Otherwise we may have to kill it from another window. */
+                litton_keyboard_close(state, device);
+                putc('^', stdout);
+                putc('C', stdout);
+                putc('\n', stdout);
+                fflush(stdout);
+                exit(1);
+            }
+            ch2 = litton_char_to_charset
+                (&ch, &posn, 1, state->keyboard_charset);
+            if (ch2 >= 0) {
+                /* We have a valid character in the keyboard's character set */
+                *value = litton_add_parity(ch2, parity);
+                return 1;
+            }
+        } else if (size == 0) {
+            /* Hangup on remote end of pipe probably; exit the program */
+            litton_keyboard_close(state, device);
+            exit(1);
+        }
+    }
+
+    /* No input available at this time */
+    return 0;
 }
 
 void litton_add_keyboard
     (litton_state_t *state, uint8_t id, litton_charset_t charset)
 {
-    litton_device_t *device = calloc(1, sizeof(litton_device_t));
-    device->id = id;
-    device->supports_input = 1;
-    device->supports_output = 0;
-    device->charset = charset;
-    device->input = litton_keyboard_input;
-    litton_add_device(state, device);
+    litton_keyboard_info_t *device = calloc(1, sizeof(litton_keyboard_info_t));
+    device->parent.id = id;
+    device->parent.supports_input = 1;
+    device->parent.supports_output = 0;
+    device->parent.charset = charset;
+    device->parent.input = litton_keyboard_input;
+    device->parent.close = litton_keyboard_close;
+    litton_add_device(state, &(device->parent));
 }
 
 void litton_add_input_tape
