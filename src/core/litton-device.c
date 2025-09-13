@@ -688,11 +688,17 @@ uint8_t litton_print_wheel_position(uint8_t code)
 
 int litton_is_valid_device_id(uint8_t id)
 {
-    /* Either bit 6 or 7 must be non-zero */
-    if ((id & 0xC0) == 0) {
-        return 0;
+    /* Device identifiers typically have two bits set, one for the
+     * group and another for the device within the group.  Different
+     * Litton 1600 based configurations may use different numbers of
+     * bits for the group and device.  We check if two bits are set
+     * and just leave it at that. */
+    int count = 0;
+    int bit;
+    for (bit = 0; bit < 8; ++bit) {
+        if ((id & (1 << bit)) != 0) {
+            ++count;
+        }
     }
-
-    /* Any of bits 0 to 5 must be non-zero */
-    return (id & 0x3F) != 0;
+    return count == 2;
 }

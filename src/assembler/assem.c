@@ -699,10 +699,6 @@ static int litton_assem_isw(litton_assem_t *assem)
     if (!litton_assem_eval_expr(assem, &value, 0, 255)) {
         return 0;
     }
-    if (!litton_is_valid_device_id(value)) {
-        litton_error(&(assem->tokeniser), "invalid device identifier");
-        return 0;
-    }
 
     /* Insert the equivalent of the following code:
      *
