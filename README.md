@@ -116,7 +116,9 @@ Documentation for the tools in this repository:
 * [Litton Drum Image File Format](doc/drum-image-format.md)
 * [Litton Low-Level Cross Assembler](doc/assembler-low-level.md)
 * [Litton Device Identifiers](doc/devices.md)
-* [Explainer for Litton Instruction Precession](doc/precession.md)
+* [Explainer for Litton instruction precession](doc/precession.md)
+* [Mapping of Litton part numbers to 74xx series part numbers](doc/Litton-Part-Number-Mapping.ods) (ODS spreadsheet)
+* [Location of Mxxx part designators on the PCB's and in the schematic](doc/Litton-Part-Locator.ods) (ODS spreadsheet)
 
 ## TODO
 
