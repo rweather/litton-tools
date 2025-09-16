@@ -261,6 +261,32 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
     }
 }
 
+static int is_alpha_numeric(litton_word_t word)
+{
+    int bit;
+    uint8_t value;
+    for (bit = 32; bit >= 0; bit -= 8) {
+        value = ((uint8_t)(word >> bit)) & 0x7F;
+        if (value >= 0x40) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void print_alpha_numeric(litton_word_t word)
+{
+    int bit;
+    uint8_t value;
+    const char *string_form;
+    for (bit = 32; bit >= 0; bit -= 8) {
+        value = ((uint8_t)(word >> bit)) & 0x7F;
+        litton_char_from_charset
+            (value, LITTON_CHARSET_EBS1231, &string_form);
+        fputs(string_form, stdout);
+    }
+}
+
 static void disassemble_pretty(void)
 {
     litton_drum_loc_t addr;
@@ -270,12 +296,20 @@ static void disassemble_pretty(void)
             continue;
         }
         word = machine.drum[addr];
-        printf("%03X: %02X %02X %02X %02X %02X\n", addr,
+        printf("%03X: %02X %02X %02X %02X %02X", addr,
                (unsigned)((word >> 32) & 0xFF),
                (unsigned)((word >> 24) & 0xFF),
                (unsigned)((word >> 16) & 0xFF),
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
+        if (is_alpha_numeric(word)) {
+            /* This may be alphanumeric data in the EBC1231 character set */
+            printf("    \"");
+            print_alpha_numeric(word);
+            printf("\"\n");
+        } else {
+            printf("\n");
+        }
         if (is_valid_instruction_word(word)) {
             disassemble_word_pretty(addr, word);
         } else {
