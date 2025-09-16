@@ -9,6 +9,7 @@ PROGRAMS = \
 	hellorld.drum \
 	hello_world.drum \
 	hello_world_pointers.drum \
+	math_fragments.drum \
 
 all: $(PROGRAMS)
 
@@ -26,6 +27,9 @@ hello_world_pointers.drum: hello_world_pointers.las
 
 hellorld.drum: hellorld.las
 	$(LITTON_AS) -o hellorld.drum hellorld.las
+
+math_fragments.drum: math_fragments.las
+	$(LITTON_AS) -o math_fragments.drum math_fragments.las
 
 clean:
 	rm -f $(PROGRAMS)

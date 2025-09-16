@@ -38,7 +38,7 @@ done:
 ; Print the value in S7 in decimal, with leading zeroes.
 ;
 prnum:
-    st 5            ; Save the return address in S5
+    xc 5            ; Save the return address in S5
 ;
     isw printer     ; Select the printer output device
 ;
