@@ -297,6 +297,16 @@ location and jump to it when the subroutine returns:
     temp:
         DW 0
 
+The code can be made shorter using <tt>XC</tt> to save the return address
+in a scratchpad register by exchanging it with A:
+
+        JM label
+        ...
+    label:
+        XC 7
+        ...
+        JU 7
+
 Alternatively, the <tt>JUMP TO A</tt> instruction <tt>JA</tt> can be used.
 On entry to the subroutine, shift the value left by 8 bits (<tt>BLS 8</tt>)
 and store it into a scratchpad register or other temporary memory location.
@@ -308,11 +318,11 @@ scratchpad register 7 as a link register:
         ...
     label:
         BLS 8
-        ST 7
+        XC 7
         ...
-        LD 7
+        XC 7
         JA
 
-Neither solution supports recursion, so the programmer will need to make
-other arrangements to save A to a stack on entry to the subroutine, and
+None of these solutions support recursion, so the programmer will need to
+make other arrangements to save A to a stack on entry to the subroutine, and
 pop the value from the stack before returning.
