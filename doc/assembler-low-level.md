@@ -326,3 +326,42 @@ scratchpad register 7 as a link register:
 None of these solutions support recursion, so the programmer will need to
 make other arrangements to save A to a stack on entry to the subroutine, and
 pop the value from the stack before returning.
+
+## Pointers
+
+The instruction set only supports absolute loads (CA) and stores (ST).
+This can make it difficult to write code that involves pointers.
+It is possible to get the effect of pointers using self-modifying code to
+insert a pointer value into a preformatted CA or ST instruction.
+
+For example, the following takes a pointer value in A, adds it to the
+preformatted instruction at "load" and then executes it to load the
+value at the pointer back into A:
+
+        BLS 16          ; Shift the pointer in A up by 16 bits
+        AD load         ; to overwrite the "CA 0" instruction below.
+        ST 7            ; Save the new instruction in S7
+        JU 7            ; and jump to it.
+    load:
+        CA 0
+        JU load2
+    load2:
+        ...
+
+Store can be done in a similar manner.  The following example stores S0
+to the pointer value in A.  A is destroyed in the process:
+
+        BLS 16          ; Shift the pointer in A up by 16 bits
+        AD store        ; to overwrite the "ST 0" instruction below.
+        ST 7            ; Save the new instruction in S7.
+        CA 0            ; Load the value to store from S0 into A.
+        JU 7            ; Jump to the new instruction.
+    store:
+        ST 0
+        JU store2
+    store2:
+        ...
+
+As an alternative, the load or store instruction could be built in A and
+then executed using JA.  The <tt>hello\_world\_pointers</tt> example
+uses this approach.
