@@ -37,3 +37,7 @@ include_directories(
 
 # Add the subdirectories.
 add_subdirectory(src)
+add_subdirectory(test)
+
+# Enable testing support.
+enable_testing()
