@@ -35,8 +35,10 @@ void litton_clear_memory(litton_state_t *state)
     /* Set the default drum size */
     litton_set_drum_size(state, LITTON_DRUM_MAX_SIZE);
 
-    /* Set the default character sets for the printer and keyboard */
+    /* Set the default device information for the printer and keyboard */
+    state->printer_id = LITTON_DEVICE_PRINTER;
     state->printer_charset = LITTON_CHARSET_EBS1231;
+    state->keyboard_id = LITTON_DEVICE_KEYBOARD;
     state->keyboard_charset = LITTON_CHARSET_EBS1231;
 
     /* Select register is control up to begin with */
