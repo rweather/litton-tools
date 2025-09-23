@@ -109,6 +109,9 @@ void litton_reset(litton_state_t *state)
     /* Fake the jump to the entry point as starting at 0xFFF */
     state->PC = LITTON_DRUM_MAX_SIZE - 1;
 
+    /* A is set to all-1's upon reset */
+    state->A = LITTON_WORD_MASK;
+
     /* K is set to 1 upon reset */
     state->K = 1;
 }
