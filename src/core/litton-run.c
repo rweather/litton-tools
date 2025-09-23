@@ -132,7 +132,6 @@ static void litton_single_left_shift
         A = (A << 1) | K;
         final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
-        K = 0;
         --N;
     }
     *word = A;
@@ -153,7 +152,6 @@ static void litton_double_left_shift
         A = (A << 1) | final_K;
         final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
-        K = 0;
         --N;
     }
     *word1 = A;
@@ -169,7 +167,6 @@ static void litton_single_right_shift
     while (N > 0) {
         final_K = A & 1;
         A = (A >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = 0;
         --N;
     }
     *word = A;
@@ -183,13 +180,12 @@ static void litton_double_right_shift
     litton_word_t A = *word1;
     litton_word_t B = *word2;
     litton_word_t final_K = 0;
+    litton_word_t carry_K = 0;
     while (N > 0) {
-        final_K = A & 1;
+        carry_K = A & 1;
         A = (A >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = final_K;
         final_K = B & 1;
-        B = (B >> 1) | (K << (LITTON_WORD_BITS - 1));
-        K = 0;
+        B = (B >> 1) | (carry_K << (LITTON_WORD_BITS - 1));
         --N;
     }
     *word1 = A;
