@@ -1,6 +1,8 @@
 Litton Device Identifiers
 =========================
 
+## Technical Reference Manual
+
 Section 3.6 of the [Litton 1600 Technical Reference Manual](http://www.bitsavers.org/pdf/litton/Litton1600_TechnicalRefMan.pdf)
 specifies that an 8-bit value is used to select a device or devices
 using a bitmask.
@@ -29,9 +31,11 @@ group:
 * Ob4 for the keyboard
 * Ob5 for the tape reader
 
-Separately, page 40 of the Litton EBS1231 System Programming Manual
-indicates that devices are identified by a 6-bit octal code with 3 bits for
-input devices and 3 bits for output devices:
+## System Programming Manual
+
+Page 40 of the Litton EBS1231 System Programming Manual indicates that
+devices are identified by a 6-bit octal code with 3 bits for input devices
+and 3 bits for output devices:
 
 <img src="device-prog-manual.png" width="600"/>
 
@@ -51,3 +55,12 @@ The resulting hexadecimal codes for the standard devices are:
 The tools in this repository assume that Ob7 and Ob8 are group bits
 with Ob1 to Ob6 as device bits.  This allows up to 12 devices;
 6 input devices and 6 output devices.
+
+## OPUS
+
+OPUS is known to use the following device identifiers:
+
+* $41 for selecting the printer
+* $48 for selecting the keyboard
+* $49 for selecting both the printer and the keyboard at the same time
+* $C0 to reset all devices
