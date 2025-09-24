@@ -359,11 +359,13 @@ static uint8_t visited[LITTON_DRUM_MAX_SIZE];
 #define VISIT_NONE 0
 #define VISIT_DONE 1
 #define VISIT_SUBROUTINE 2
+#define VISIT_CONDITIONAL 3
 
 static void disassemble_visit(litton_drum_loc_t addr)
 {
     litton_word_t word;
     litton_drum_loc_t next_addr;
+    litton_drum_loc_t other_addr;
     const litton_opcode_info_t *opcode;
     unsigned posn;
     uint16_t insn;
@@ -403,7 +405,7 @@ static void disassemble_visit(litton_drum_loc_t addr)
         while (posn < 4) {
             insn = (word >> ((3 - posn) * 8)) & 0xFF;
             ++posn;
-            if (insn >= 0x0040) {
+            if (insn >= 0x0040 && posn < 4) {
                 insn <<= 8;
                     insn |= (word >> ((3 - posn) * 8)) & 0xFF;
                 ++posn;
@@ -412,6 +414,15 @@ static void disassemble_visit(litton_drum_loc_t addr)
                 /* Don't bother with no-op's as they are usually padding for
                  * when the next instruction doesn't fit in the current word. */
                 continue;
+            } else if (insn == LOP_JA) {
+                /* Jump to accumulator is usually "return from subroutine",
+                 * so this is the end of the current visit chain. */
+                if (first) {
+                    printf("%s\n", "JA");
+                } else {
+                    printf("                              %s\n", "JA");
+                }
+                return;
             }
             opcode = litton_opcode_by_number(insn);
             if ((insn & 0xF000) == LOP_JU) {
@@ -420,14 +431,6 @@ static void disassemble_visit(litton_drum_loc_t addr)
                  * as the following instructions will never be reached. */
                 next_addr = insn & 0xFFF;
                 break;
-            }
-            if ((insn & 0xF000) == LOP_JM) {
-                /* "Jump Mark" is usually jumping to a subroutine.  Mark the
-                 * subroutine for later if we have not visited it yet. */
-                litton_drum_loc_t subr_addr = insn & 0xFFF;
-                if (visited[subr_addr] == VISIT_NONE) {
-                    visited[subr_addr] = VISIT_SUBROUTINE;
-                }
             }
             if ((insn & 0xF000) == LOP_JC && posn >= 4) {
                 /*
@@ -456,6 +459,15 @@ static void disassemble_visit(litton_drum_loc_t addr)
                     printf("                              %-5s", "JU");
                     printf(" $%03X\n", addr);
                     break;
+                }
+            }
+            if ((insn & 0xF000) == LOP_JC) {
+                /* Mark the destination of conditional jumps for
+                 * preferential visiting on the next pass as they are
+                 * probably still part of the current subroutine. */
+                other_addr = insn & 0xFFF;
+                if (visited[other_addr] == VISIT_NONE) {
+                    visited[other_addr] = VISIT_CONDITIONAL;
                 }
             }
             if (first) {
@@ -518,6 +530,27 @@ static void disassemble_visit(litton_drum_loc_t addr)
     }
 }
 
+static void find_jump_mark(litton_word_t word)
+{
+    unsigned posn = 0;
+    uint16_t insn;
+    while (posn < 4) {
+        insn = (word >> ((3 - posn) * 8)) & 0xFF;
+        ++posn;
+        if (insn >= 0x0040 && posn < 4) {
+            insn <<= 8;
+                insn |= (word >> ((3 - posn) * 8)) & 0xFF;
+            ++posn;
+        }
+        if ((insn & 0xF000) == LOP_JM) {
+            litton_drum_loc_t addr = insn & 0xFFF;
+            if (visited[addr] == VISIT_NONE) {
+                visited[addr] = VISIT_SUBROUTINE;
+            }
+        }
+    }
+}
+
 static void disassemble_straighten(void)
 {
     litton_drum_loc_t addr;
@@ -532,6 +565,14 @@ static void disassemble_straighten(void)
         }
     }
 
+    /* Find all "Jump Mark" instructions and mark the destination
+     * addresses as subroutine entry points. */
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+        if (is_valid_instruction_word(machine.drum[addr])) {
+            find_jump_mark(machine.drum[addr]);
+        }
+    }
+
     /* Start by visiting the entry point if we have one */
     if (use_mask[machine.entry_point]) {
         disassemble_visit(machine.entry_point);
@@ -541,13 +582,26 @@ static void disassemble_straighten(void)
      * In the worst case, this exhibits O(n^2) behaviour.  That is,
      * 4096^2 = 16777216 visits.  Modern computers can handle that. */
     for (;;) {
-        /* Try finding a subroutine entry point */
+        /* Try finding a conditional jump destination, as it is probably
+         * still part of the last subroutine we were visiting. */
+        for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+            if (visited[addr] == VISIT_CONDITIONAL) {
+                break;
+            }
+        }
+        if (addr < LITTON_DRUM_MAX_SIZE) {
+            disassemble_visit(addr);
+            continue;
+        }
+
+        /* Try finding a new subroutine entry point */
         for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
             if (visited[addr] == VISIT_SUBROUTINE) {
                 break;
             }
         }
         if (addr < LITTON_DRUM_MAX_SIZE) {
+            printf(";\n;\n;\n"); /* Print a separator before the subroutine */
             disassemble_visit(addr);
             continue;
         }
