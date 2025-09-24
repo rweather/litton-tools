@@ -117,6 +117,7 @@ Documentation for the tools in this repository:
 * [Litton Low-Level Cross Assembler](doc/assembler-low-level.md)
 * [Litton Device Identifiers](doc/devices.md)
 * [Explainer for Litton instruction precession](doc/precession.md)
+* [Keyboard Mapping for the GUI Emulator](images/keyboard-layout.png)
 * [Mapping of Litton part numbers to 74xx series part numbers](doc/Litton-Part-Number-Mapping.ods) (ODS spreadsheet)
 * [Location of Mxxx part designators on the PCB's and in the schematic](doc/Litton-Part-Locator.ods) (ODS spreadsheet)
 
