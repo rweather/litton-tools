@@ -360,6 +360,7 @@ static uint8_t visited[LITTON_DRUM_MAX_SIZE];
 #define VISIT_DONE 1
 #define VISIT_SUBROUTINE 2
 #define VISIT_CONDITIONAL 3
+#define VISIT_VARIABLE 4
 
 static void disassemble_visit(litton_drum_loc_t addr)
 {
@@ -369,10 +370,12 @@ static void disassemble_visit(litton_drum_loc_t addr)
     const litton_opcode_info_t *opcode;
     unsigned posn;
     uint16_t insn;
+    uint8_t is_var;
     int first;
     for (;;) {
         /* Get the next word and mark it as done */
         word = machine.drum[addr];
+        is_var = (visited[addr] == VISIT_VARIABLE);
         visited[addr] = VISIT_DONE;
 
         /* Dump the address and word in hexadecimal */
@@ -393,7 +396,7 @@ static void disassemble_visit(litton_drum_loc_t addr)
         first = 1;
 
         /* Does the word look like an instruction or data word? */
-        if (!is_valid_instruction_word(word)) {
+        if (!is_valid_instruction_word(word) || is_var) {
             /* Data word; dump it as "DW" and we're done */
             printf("DW    $%010lX\n", (unsigned long)word);
             break;
@@ -530,10 +533,11 @@ static void disassemble_visit(litton_drum_loc_t addr)
     }
 }
 
-static void find_jump_mark(litton_word_t word)
+static void find_address_using_instructions(litton_word_t word)
 {
     unsigned posn = 0;
     uint16_t insn;
+    litton_drum_loc_t addr;
     while (posn < 4) {
         insn = (word >> ((3 - posn) * 8)) & 0xFF;
         ++posn;
@@ -542,11 +546,25 @@ static void find_jump_mark(litton_word_t word)
                 insn |= (word >> ((3 - posn) * 8)) & 0xFF;
             ++posn;
         }
-        if ((insn & 0xF000) == LOP_JM) {
-            litton_drum_loc_t addr = insn & 0xFFF;
+        addr = insn & 0xFFF;
+        switch (insn & 0xF000) {
+        case LOP_JM:
+            /* Mark the addresses of subroutines */
             if (visited[addr] == VISIT_NONE) {
                 visited[addr] = VISIT_SUBROUTINE;
             }
+            break;
+
+        case LOP_CA:
+        case LOP_AD:
+        case LOP_ST:
+        case LOP_AC:
+            /* Address probably refers to a variable or constant.
+             * Force the word to be dumped as a literal. */
+            if (visited[addr] == VISIT_NONE) {
+                visited[addr] = VISIT_VARIABLE;
+            }
+            break;
         }
     }
 }
@@ -565,11 +583,10 @@ static void disassemble_straighten(void)
         }
     }
 
-    /* Find all "Jump Mark" instructions and mark the destination
-     * addresses as subroutine entry points. */
+    /* Find instructions that use an address and classify them */
     for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
         if (is_valid_instruction_word(machine.drum[addr])) {
-            find_jump_mark(machine.drum[addr]);
+            find_address_using_instructions(machine.drum[addr]);
         }
     }
 
@@ -608,7 +625,8 @@ static void disassemble_straighten(void)
 
         /* Find any other address that hasn't been visited yet */
         for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
-            if (visited[addr] == VISIT_NONE) {
+            if (visited[addr] == VISIT_NONE ||
+                    visited[addr] == VISIT_VARIABLE) {
                 break;
             }
         }
