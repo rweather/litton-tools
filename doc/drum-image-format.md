@@ -60,11 +60,9 @@ hexadecimal fields separated by a colon:
 
 * 3-digit address of the word in memory.
 * 10-digit value for the 40-bit word to place at the memory address,
-from most significant byte to lease significant byte.
+from most significant byte to least significant byte.
 
-The data continues until end of file or until another "#" line is seen.
-"#" starts a new header for a new drum image.  This allows multiple
-program images to be concatenated for loading into memory as a single unit.
+The data continues until end of file.
 
 Blank lines in the file are ignored.
 
@@ -72,7 +70,8 @@ Blank lines in the file are ignored.
 
 The following character sets are currently supported:
 
+* EBS1231 - [Character set](character-set.md) from Appendix V of the
+EBS/1231 System Programming Manual.  This is the native character
+set of the Litton.
 * ASCII - Self-explantory.
 * UASCII - Uppercase-only ASCII.
-* EBS1231 - Character set from Appendix V of the EBS/1231 System Programming
-Manual.  This is the native character set of the Litton.
