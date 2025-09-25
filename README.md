@@ -125,8 +125,9 @@ Documentation for the tools in this repository:
 ## TODO
 
 * Input and output punch tape formats.
-* Custom OPUS implementation to get a basic OS for the emulator.
-* Dump the real OPUS and integrate it when possible.
+* Dump OPUS of the real Litton and integrate it into the emulator.
+* Reverse-engineer OPUS and produce an annotated assembly listing.
+* Figure out the high-level symbolic language that is provided by OPUS.
 * Tools for writing and disassembling program tapes in the high-level
 symbolic language.
 
