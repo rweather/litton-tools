@@ -101,7 +101,6 @@ static int is_valid_instruction_word(litton_word_t word)
 {
     unsigned posn = 0;
     uint16_t insn;
-    int last_nop = 0;
     if ((word & 0xFFFF000000ULL) == 0) {
         /* Instruction starts with $0000, so it may just be a literal */
         return 0;
@@ -120,12 +119,6 @@ static int is_valid_instruction_word(litton_word_t word)
         }
         if (litton_opcode_by_number(insn) == 0) {
             /* Not a valid instruction */
-            return 0;
-        }
-        if (insn == LOP_NN) {
-            last_nop = 1;
-        } else if (last_nop) {
-            /* Ordinary instruction after no-op, so probably this is data */
             return 0;
         }
     }
@@ -288,28 +281,6 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
     }
 }
 
-static int is_alpha_numeric(litton_word_t word)
-{
-    int bit;
-    uint8_t value;
-    const char *string_form;
-    if (word == 0) {
-        return 0;
-    }
-    for (bit = 32; bit >= 0; bit -= 8) {
-        value = ((uint8_t)(word >> bit)) & 0xFF;
-        if (value >= 0x40) {
-            return 0;
-        }
-        litton_char_from_charset
-            (value, LITTON_CHARSET_EBS1231, &string_form);
-        if (string_form[0] == '[' || string_form[0] < 0x20) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
 static void print_alpha_numeric(litton_word_t word)
 {
     int bit;
@@ -317,9 +288,17 @@ static void print_alpha_numeric(litton_word_t word)
     const char *string_form;
     for (bit = 32; bit >= 0; bit -= 8) {
         value = ((uint8_t)(word >> bit)) & 0x7F;
+        if (value >= 0x40) {
+            putc('.', stdout);
+            continue;
+        }
         litton_char_from_charset
             (value, LITTON_CHARSET_EBS1231, &string_form);
-        fputs(string_form, stdout);
+        if (string_form[0] == '[' || string_form[0] < 0x20) {
+            putc('.', stdout);
+        } else {
+            fputs(string_form, stdout);
+        }
     }
 }
 
@@ -338,14 +317,9 @@ static void disassemble_pretty(void)
                (unsigned)((word >> 16) & 0xFF),
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
-        if (is_alpha_numeric(word)) {
-            /* This may be alphanumeric data in the EBS1231 character set */
-            printf("    \"");
-            print_alpha_numeric(word);
-            printf("\"\n");
-        } else {
-            printf("\n");
-        }
+        printf("    \"");
+        print_alpha_numeric(word);
+        printf("\"\n");
         if (is_valid_instruction_word(word)) {
             disassemble_word_pretty(addr, word);
         } else {
@@ -385,14 +359,9 @@ static void disassemble_visit(litton_drum_loc_t addr)
                (unsigned)((word >> 16) & 0xFF),
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
-        if (is_alpha_numeric(word)) {
-            /* This may be alphanumeric data in the EBS1231 character set */
-            printf("  \"");
-            print_alpha_numeric(word);
-            printf("\"  ");
-        } else {
-            printf("           ");
-        }
+        printf(" \"");
+        print_alpha_numeric(word);
+        printf("\"   ");
         first = 1;
 
         /* Does the word look like an instruction or data word? */
