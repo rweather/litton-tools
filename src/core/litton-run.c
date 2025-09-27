@@ -525,6 +525,10 @@ static void litton_parity_check
 static litton_step_result_t litton_perform_io
     (litton_state_t *state, uint16_t insn)
 {
+    /* If we're doing an I/O instruction, then the code is probably
+     * looping waiting for input ready or output not busy.  Which is OK. */
+    state->spin_counter = 0;
+
     switch (insn) {
     case LOP_SI:
         /* Shift input.  The reference manual implies that parity errors
@@ -767,7 +771,7 @@ litton_step_result_t litton_step(litton_state_t *state)
     /* Dump the state of the registers before the instruction */
     if (state->disassemble) {
         fprintf(stderr,
-                "CR=%02X, I=%010LX, A=%010LX, B=%02X, K=%d, P=%d, PC=",
+                "\rCR=%02X, I=%010LX, A=%010LX, B=%02X, K=%d, P=%d, PC=",
                 state->CR, (unsigned long long)(state->I),
                 (unsigned long long)(state->A), state->B,
                 state->K, state->P);
