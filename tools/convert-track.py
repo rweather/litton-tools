@@ -21,9 +21,16 @@ def digitize(samples):
     track_low = 1.0         # Strict 1V cut-off for the data track.
     track_high = 1.0
 
+    # 100k or 200k samples?
+    if len(samples) > 150000:
+        samples_200k = True
+    else:
+        samples_200k = False
+
     # Digitize the samples with hysteresis.
     result = []
     Z1_prev = 0
+    track_prev_prev = 0
     track_prev = 0
     T4_prev = 0
     T7_prev = 0
@@ -72,7 +79,11 @@ def digitize(samples):
             Z2_filtered = Z2_current
             Z3_filtered = Z3_current
             # Insert a 100ns delay into the track to match the hardware.
-            track_filtered = track_prev
+            if samples_200k:
+                track_filtered = track_prev_prev
+            else:
+                track_filtered = track_prev
+        track_prev_prev = track_prev
         track_prev = track_current
 
         # Derive T4, T7, and T39.
