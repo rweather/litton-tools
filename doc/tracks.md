@@ -7,12 +7,13 @@ Usage of the tracks on the drum
 <tr><td>1</td><td>$080 to $0FF</td><td> </td></tr>
 <tr><td>2</td><td>$100 to $17F</td><td> </td></tr>
 <tr><td>3</td><td>$180 to $1FF</td><td> </td></tr>
-<tr><td>4</td><td>$200 to $27F</td><td> </td></tr>
-<tr><td>5</td><td>$280 to $2FF</td><td> </td></tr>
+<tr><td>4</td><td>$200 to $27F</td><td>OPUS</td></tr>
+<tr><td>5</td><td>$280 to $2FF</td><td>OPUS</td></tr>
 <tr><td>6</td><td>$300 to $37F</td><td>Program registers P000 to P127</td></tr>
-<tr><td>7</td><td>$380 to $3FF</td><td>Variable registers V00 to V63</td></tr>
-<tr><td>8</td><td>$400 to $47F</td><td> </td></tr>
-<tr><td>9</td><td>$480 to $4FF</td><td>Global variables for OPUS</td></tr>
+<tr><td>7</td><td>$380 to $3BF</td><td>Variable registers V00 to V63</td></tr>
+<tr><td> </td><td>$3C0 to $3FF</td><td>OPUS</td></tr>
+<tr><td>8</td><td>$400 to $47F</td><td>OPUS</td></tr>
+<tr><td>9</td><td>$480 to $4FF</td><td>OPUS and global variables for OPUS</td></tr>
 <tr><td>10</td><td>$500 to $57F</td><td>OPUS</td></tr>
 <tr><td>11</td><td>$580 to $5FF</td><td>OPUS</td></tr>
 <tr><td>12</td><td>$600 to $67F</td><td>OPUS</td></tr>
