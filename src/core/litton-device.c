@@ -305,6 +305,73 @@ static void litton_keyboard_close
     }
 }
 
+static int litton_keyboard_find_escape(const char *escape, unsigned len)
+{
+    struct key {
+        const char *sequence;
+        int code;
+    };
+    static struct key const sequences[] = {
+        {"OP",      034},       /* F1: I */
+        {"OQ",      035},       /* F2: II */
+        {"OR",      036},       /* F2: III */
+        {"OS",      037},       /* F2: IIII */
+        {"O2P",     0134},      /* SHIFT+F1: SHIFT+I */
+        {"O2Q",     0135},      /* SHIFT+F2: SHIFT+II */
+        {"O2R",     0136},      /* SHIFT+F3: SHIFT+III */
+        {"O2S",     0137},      /* SHIFT+F4: SHIFT+IIII */
+        {"[15~",    014},       /* F5: P1 */
+        {"[17~",    015},       /* F6: P2 */
+        {"[18~",    016},       /* F7: P3 */
+        {"[19~",    017},       /* F8: P4 */
+        {"[15;2~",  0114},      /* SHIFT+F5: SHIFT+P1 */
+        {"[17;2~",  0115},      /* SHIFT+F6: SHIFT+P2 */
+        {"[18;2~",  0116},      /* SHIFT+F7: SHIFT+P3 */
+        {"[19;2~",  0117},      /* SHIFT+F8: SHIFT+P4 */
+        {"[A",      075},       /* UP: Index Left */
+        {"[1;5A",   055},       /* CTRL+UP: Index Right */
+        {"[5~",     054},       /* PAGE UP: Index Left and Right */
+        {0, 0}
+    };
+    const struct key *seq = sequences;
+    while (seq->sequence) {
+        size_t len2 = strlen(seq->sequence);
+        if (len2 == len && !memcmp(seq->sequence, escape, len)) {
+            return seq->code;
+        }
+        ++seq;
+    }
+    return 0;
+}
+
+static int litton_keyboard_read_escape(void)
+{
+    struct pollfd fd;
+    char escape[16];
+    unsigned posn = 0;
+    int ch2;
+    while (posn < sizeof(escape)) {
+        fd.fd = 0;
+        fd.events = POLLIN;
+        fd.revents = 0;
+        if (poll(&fd, 1, 50) > 0 || (fd.revents & (POLLIN | POLLHUP)) != 0) {
+            char ch;
+            int size = read(0, &ch, 1);
+            if (size <= 0) {
+                break;
+            }
+            escape[posn++] = ch;
+            ch2 = litton_keyboard_find_escape(escape, posn);
+            if (ch2 != 0) {
+                return ch2;
+            }
+        } else {
+            break;
+        }
+    }
+    return -1;
+}
+
 static int litton_keyboard_input
     (litton_state_t *state, litton_device_t *device,
      uint8_t *value, litton_parity_t parity)
@@ -332,7 +399,7 @@ static int litton_keyboard_input
     fd.fd = 0;
     fd.events = POLLIN;
     fd.revents = 0;
-    if (poll(&fd, 1, 0) < 0 || (fd.revents & (POLLIN | POLLHUP)) != 0) {
+    if (poll(&fd, 1, 0) > 0 || (fd.revents & (POLLIN | POLLHUP)) != 0) {
         char ch;
         int size = read(0, &ch, 1);
         if (size > 0) {
@@ -347,6 +414,15 @@ static int litton_keyboard_input
                 putc('\n', stdout);
                 fflush(stdout);
                 exit(1);
+            } else if (ch == 0x1B &&
+                       state->keyboard_charset == LITTON_CHARSET_EBS1231) {
+                /* May be an escape sequence for a special key */
+                ch2 = litton_keyboard_read_escape();
+                if (ch2 >= 0) {
+                    /* Escape sequence was mapped to an EBS1231 code */
+                    *value = litton_add_parity(ch2, parity);
+                    return 1;
+                }
             }
             ch2 = litton_char_to_charset
                 (&ch, &posn, 1, state->keyboard_charset);

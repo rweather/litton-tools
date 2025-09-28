@@ -842,35 +842,67 @@ static void process_key(SDL_Keysym keysym)
         break;
 
     case SDLK_F1:
-        process_ebs1231_code(034); /* I */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0134); /* SHIFT-I */
+        } else {
+            process_ebs1231_code(034);  /* I */
+        }
         break;
 
     case SDLK_F2:
-        process_ebs1231_code(035); /* II */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0135); /* SHIFT-II */
+        } else {
+            process_ebs1231_code(035);  /* II */
+        }
         break;
 
     case SDLK_F3:
-        process_ebs1231_code(036); /* III */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0136); /* SHIFT-III */
+        } else {
+            process_ebs1231_code(036);  /* III */
+        }
         break;
 
     case SDLK_F4:
-        process_ebs1231_code(037); /* IIII */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0137); /* SHIFT-IIII */
+        } else {
+            process_ebs1231_code(037);  /* IIII */
+        }
         break;
 
     case SDLK_F5:
-        process_ebs1231_code(014); /* P1 */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0114); /* SHIFT-P1 */
+        } else {
+            process_ebs1231_code(014);  /* P1 */
+        }
         break;
 
     case SDLK_F6:
-        process_ebs1231_code(015); /* P2 */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0115); /* SHIFT-P2 */
+        } else {
+            process_ebs1231_code(015);  /* P2 */
+        }
         break;
 
     case SDLK_F7:
-        process_ebs1231_code(016); /* P3 */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0116); /* SHIFT-P3 */
+        } else {
+            process_ebs1231_code(016);  /* P3 */
+        }
         break;
 
     case SDLK_F8:
-        process_ebs1231_code(017); /* P4 */
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            process_ebs1231_code(0117); /* SHIFT-P4 */
+        } else {
+            process_ebs1231_code(017);  /* P4 */
+        }
         break;
 
     case SDLK_UP:
