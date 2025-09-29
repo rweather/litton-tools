@@ -31,6 +31,7 @@ static uint8_t use_mask[LITTON_DRUM_MAX_SIZE];
 static void disassemble_raw(void);
 static void disassemble_pretty(void);
 static void disassemble_straighten(void);
+static void dump_strings(void);
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +40,7 @@ int main(int argc, char *argv[])
     int arg;
     int pretty = 1;
     int straighten = 0;
+    int strings = 0;
 
     /* Check for raw or pretty mode */
     if (argc > 1 && !strcmp(argv[1], "--raw")) {
@@ -57,10 +59,15 @@ int main(int argc, char *argv[])
         ++argv;
         --argc;
     }
+    if (argc > 1 && !strcmp(argv[1], "--strings")) {
+        strings = 1;
+        ++argv;
+        --argc;
+    }
 
     /* Need at least one argument */
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s [--raw|--pretty|--straighten] input.drum ...\n", progname);
+        fprintf(stderr, "Usage: %s [--raw|--pretty|--straighten|--strings] input.drum ...\n", progname);
         fprintf(stderr, "\n");
         fprintf(stderr, "    --raw\n");
         fprintf(stderr, "        Disassemble in raw format.\n\n");
@@ -68,7 +75,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "        Disassemble in pretty format (this is the default).\n\n");
         fprintf(stderr, "    --straighten\n");
         fprintf(stderr, "        Disassemble in pretty format but rearrange the code to\n");
-        fprintf(stderr, "        straighten out the flow of control.\n");
+        fprintf(stderr, "        straighten out the flow of control.\n\n");
+        fprintf(stderr, "    --strings\n");
+        fprintf(stderr, "        Dump all characters on the drum, to help find message strings.\n");
         return 1;
     }
 
@@ -79,7 +88,9 @@ int main(int argc, char *argv[])
             if (argc > 2) {
                 printf("\n%s:\n", argv[arg]);
             }
-            if (straighten) {
+            if (strings) {
+                dump_strings();
+            } else if (straighten) {
                 disassemble_straighten();
             } else if (pretty) {
                 disassemble_pretty();
@@ -606,5 +617,26 @@ static void disassemble_straighten(void)
 
         /* Visit the address */
         disassemble_visit(addr);
+    }
+}
+
+static void dump_strings(void)
+{
+    litton_drum_loc_t addr;
+    litton_drum_loc_t offset;
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; addr += 8) {
+        for (offset = 0; offset < 8; ++offset) {
+            if (use_mask[addr + offset]) {
+                break;
+            }
+        }
+        if (offset >= 8) {
+            continue;
+        }
+        printf("%03X: ", addr);
+        for (offset = 0; offset < 8; ++offset) {
+            print_alpha_numeric(machine.drum[addr + offset]);
+        }
+        printf("\n");
     }
 }
