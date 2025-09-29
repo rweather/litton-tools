@@ -88,7 +88,13 @@ int main(int argc, char *argv[])
         litton_free(&machine);
         return 1;
     }
+
+    /* Create the standard devices */
     litton_create_default_devices(&machine);
+    litton_add_tape_punch
+        (&machine, LITTON_DEVICE_PUNCH, LITTON_CHARSET_EBS1231);
+    litton_add_tape_reader
+        (&machine, LITTON_DEVICE_READER, LITTON_CHARSET_EBS1231);
 
     /* Reset the machine */
     litton_reset(&machine);

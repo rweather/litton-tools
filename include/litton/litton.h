@@ -886,6 +886,28 @@ void litton_add_keyboard
     (litton_state_t *state, uint8_t id, litton_charset_t charset);
 
 /**
+ * @brief Adds a tape punch device to the computer that writes the
+ * punched data to standard output.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the tape punch.
+ * @param[in] charset The character set for the tape punch.
+ */
+void litton_add_tape_punch
+    (litton_state_t *state, uint8_t id, litton_charset_t charset);
+
+/**
+ * @brief Adds a tape reader device to the computer that reads
+ * punched data from standard input.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id The device identifier for the tape reader.
+ * @param[in] charset The character set for the tape reader.
+ */
+void litton_add_tape_reader
+    (litton_state_t *state, uint8_t id, litton_charset_t charset);
+
+/**
  * @brief Adds an input tape to the computer.
  *
  * @param[in,out] state The state of the computer.

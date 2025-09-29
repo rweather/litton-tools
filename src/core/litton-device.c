@@ -455,6 +455,74 @@ void litton_add_keyboard
     litton_add_device(state, &(device->parent));
 }
 
+static void litton_tape_punch_output
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t value, litton_parity_t parity)
+{
+    int ch;
+    const char *string_form;
+    (void)state;
+    if (device->charset == LITTON_CHARSET_HEX) {
+        if (device->print_position > 0) {
+            putc(' ', stdout);
+        }
+        printf("%02X", value);
+        ++(device->print_position);
+        if (device->print_position >= 16) {
+            printf("\n");
+            device->print_position = 0;
+        }
+    } else {
+        value = litton_remove_parity(value, parity);
+        ch = litton_char_from_charset(value, device->charset, &string_form);
+        if (ch == -1) {
+            fputs(string_form, stdout);
+        } else {
+            putc(ch, stdout);
+        }
+    }
+    fflush(stdout);
+}
+
+void litton_add_tape_punch
+    (litton_state_t *state, uint8_t id, litton_charset_t charset)
+{
+    litton_device_t *device = calloc(1, sizeof(litton_device_t));
+    device->id = id;
+    device->supports_input = 0;
+    device->supports_output = 1;
+    device->charset = charset;
+    device->output = litton_tape_punch_output;
+    litton_add_device(state, device);
+}
+
+static int litton_tape_reader_input
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t *value, litton_parity_t parity)
+{
+    /* Find the keyboard device and read from that instead */
+    device = state->devices;
+    while (device != 0) {
+        if (device->id == LITTON_DEVICE_KEYBOARD) {
+            return (*(device->input))(state, device, value, parity);
+        }
+        device = device->next;
+    }
+    return 0;
+}
+
+void litton_add_tape_reader
+    (litton_state_t *state, uint8_t id, litton_charset_t charset)
+{
+    litton_device_t *device = calloc(1, sizeof(litton_device_t));
+    device->id = id;
+    device->supports_input = 1;
+    device->supports_output = 0;
+    device->charset = charset;
+    device->input = litton_tape_reader_input;
+    litton_add_device(state, device);
+}
+
 void litton_add_input_tape
     (litton_state_t *state, uint8_t id, litton_charset_t charset,
      const char *filename)
