@@ -3,7 +3,7 @@ Litton Device Identifiers
 
 ## Technical Reference Manual
 
-Section 3.6 of the [Litton 1600 Technical Reference Manual](http://www.bitsavers.org/pdf/litton/Litton1600_TechnicalRefMan.pdf)
+Section 3.6 of the [Litton 1600 Technical Reference Manual](../manuals/Litton1600_TechnicalRefMan.pdf)
 specifies that an 8-bit value is used to select a device or devices
 using a bitmask.
 
@@ -33,9 +33,9 @@ group:
 
 ## System Programming Manual
 
-Page 40 of the Litton EBS1231 System Programming Manual indicates that
-devices are identified by a 6-bit octal code with 3 bits for input devices
-and 3 bits for output devices:
+Page 40 of the [EBS/1231 System Programming Manual](../manuals/Litton_1231_Programming_Manual.pdf)
+indicates that devices are identified by a 6-bit octal code with 3 bits for
+input devices and 3 bits for output devices:
 
 <img src="device-prog-manual.png" width="600"/>
 

@@ -71,7 +71,6 @@ Blank lines in the file are ignored.
 The following character sets are currently supported:
 
 * EBS1231 - [Character set](character-set.md) from Appendix V of the
-EBS/1231 System Programming Manual.  This is the native character
-set of the Litton.
+[EBS/1231 System Programming Manual](../manuals/Litton_1231_Programming_Manual.pdf).  This is the native character set of the Litton.
 * ASCII - Self-explantory.
 * UASCII - Uppercase-only ASCII.

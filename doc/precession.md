@@ -1,7 +1,7 @@
 Explainer for Litton Instruction Precession
 ===========================================
 
-Section 3.1.3 of the [Litton 1600 Technical Reference Manual](http://www.bitsavers.org/pdf/litton/Litton1600_TechnicalRefMan.pdf)
+Section 3.1.3 of the [Litton 1600 Technical Reference Manual](../manuals/Litton1600_TechnicalRefMan.pdf)
 explains how instructions are fetched and executed, but it can be a
 little confusing to the beginning Litton programmer.
 

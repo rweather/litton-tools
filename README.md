@@ -43,7 +43,7 @@ To run the GUI version of the emulator, use "litton" instead:
     litton examples/echo.drum
 
 Once the system starts, press HALT, then READY, then RUN to start the program.
-See the [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf)
+See the [EBS315 ABS 1231 Operator Manual](manuals/EBS315_ABS_1231_Operator_Manual_1969.pdf)
 for more information on using the computer from the front panel.
 
 The GUI version of the emulator can load and save drum images and mount tapes.
@@ -108,8 +108,9 @@ There is also a "raw" mode that shows the sub-instructions in columns:
 The following documents are from Litton and explain different aspects
 of the machine:
 
-* [EBS315 ABS 1231 Operator Manual](http://www.bitsavers.org/pdf/litton/EBS315_ABS_1231_Operator_Manual_1969.pdf)
-* [Litton 1600 Technical Reference Manual](http://www.bitsavers.org/pdf/litton/Litton1600_TechnicalRefMan.pdf)
+* [EBS315 ABS 1231 Operator Manual](manuals/EBS315_ABS_1231_Operator_Manual_1969.pdf)
+* [Litton 1600 Technical Reference Manual](manuals/Litton1600_TechnicalRefMan.pdf)
+* [EBS/1231 System Programming Manual](manuals/Litton_1231_Programming_Manual.pdf)
 
 Documentation for the tools in this repository:
 

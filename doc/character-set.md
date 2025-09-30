@@ -1,8 +1,8 @@
 EBS1231 Character Set
 =====================
 
-The table below is adapted from the one in the Litton EBS1231 System
-Programming Manual.
+The table below is adapted from the one in the
+[EBS/1231 System Programming Manual](../manuals/Litton_1231_Programming_Manual.pdf).
 
 "Code" is the octal code for the character that is
 used by the Litton.  "Keyboard" is the corresponding key on the keyboard.

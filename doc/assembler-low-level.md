@@ -176,7 +176,7 @@ Directive names are not case-sensitive.
 ## Core Instructions
 
 All of the instructions from section 3.7 of the
-[Litton 1600 Technical Reference Manual](http://www.bitsavers.org/pdf/litton/Litton1600_TechnicalRefMan.pdf)
+[Litton 1600 Technical Reference Manual](../manuals/Litton1600_TechnicalRefMan.pdf)
 are supported.
 
 The machine has the following registers:
