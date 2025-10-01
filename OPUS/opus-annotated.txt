@@ -1,6 +1,8 @@
 ;
 ; Global Variables:
 ;
+;   $300    Start of the program area, extends to $37F.
+;   $380    Start of the storage area for Vnn registers, extends to $3BF.
 ;   $4E6    Decimal, octal, or hexadecimal number format.
 ;   $4E7    ???
 ;   $4E8    Current command character, aligned in bits 32..39.
@@ -11,6 +13,12 @@
 ;   $4F4    Register number that was entered by the user.
 ;   $4FE    Link address for subroutines.
 ;   $4FF    ???
+;
+; The block interchange contains the high-level language's state:
+;
+;   BI-1    A register
+;   BI-2    Current instruction word being executed, 10 bits per instruction
+;   BI-5    B register
 ;
 
 ;
@@ -63,6 +71,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 5ED: ED 70 00 F5 75           OAO               ; Echo the character.
                               JC    $575
                               JU    $5ED        ; Loop until output not busy.
+710: 00 00 00 00 49           DW    $0000000049
+7F0: 0A 5C 00 F5 0E           DW    $0A5C00F50E
 ;
 ; Dispatch the command based on the character in bits 24..31 S2.
 ; The code here is a little weird, but the overall effect is to do this:
@@ -226,11 +236,15 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; Not sure what this is doing.
 ;
+; TODO
+;
 682: 1E 84 5D D2 1C           CA    $45D
                               AC    $21C
                               JU    $61E
 ;
 ; $683 - Command handler for L - Punch Tape Leader.
+;
+; TODO
 ;
 683: 00 87 B8 E5 1C           CA    $7B8
 51C: 00 F5 11 E4 F9           JC    $511
@@ -240,10 +254,13 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $59F
 522: 00 0B E5 9F 00           CM   
 59F: 00 21 E4 F9 00           XC    1
-                              JU    $4F9
+4F9: 28 0A E4 80 25           NN
+                              JU    $480
 7B8: FF FF FF FF D8           DW    $FFFFFFFFD8
 ;
 ; $684 - Command handler for P2 - Verify Program Tape.
+;
+; TODO
 ;
 684: 00 85 1D E5 29           CA    $51D
                               JU    $529
@@ -263,13 +280,33 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $687 - Command handler for T - Punch Program onto Tape.
 ;
+; TODO
+;
 687: 00 84 ED E5 23           CA    $4ED
                               JU    $523
 ;
 ; $688 - Command handler for Q - Change Register.
 ;
-688: 00 C5 76 E5 3F           JM    $576
+; TODO
+;
+688: 00 C5 76 E5 3F           JM    $576        ; Prompt for register number.
+53F: B2 C5 35 C7 2E           JM    $535        ; Move print head to column 19.
+                              JM    $72E        ; ???
+5B2: C2 C5 3B F2 C3           JM    $53B        ; ???
+                              JC    $2C3
+5C2: BD C6 A1 C5 37           JM    $6A1        ; ???
+                              JM    $537
+5BD: 00 C6 BF E5 3F           JM    $6BF
                               JU    $53F
+2C3: 00 C2 2A E2 2E           JM    $22A
+22E: A9 C4 0A 84 F8           JM    $40A
+                              CA    $4F8
+2A9: 31 B0 00 C2 2D           ST    0
+                              JM    $22D
+231: C5 C5 38 C4 BC           JM    $538
+                              JM    $4BC
+2C5: 00 F5 3F E2 2E           JC    $53F
+                              JU    $22E
 ;
 ; $689 - Command handler for R - Reset Memory.
 ;
@@ -337,10 +374,14 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68B - Command handler for S - Store Instructions or Data.
 ;
+; TODO
+;
 68B: 00 C5 76 E2 46           JM    $576
                               JU    $246
 ;
 ; $68C - Command handler for W - Print Registers in a range.
+;
+; TODO
 ;
 68C: 00 C5 76 E5 41           JM    $576        ; Prompt for first register.
 541: B3 C5 0F C7 8A           JM    $50F        ; Prompt for last register.
@@ -358,8 +399,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68D - Command handler for X - Print Register A.
 ;
-; Note: This doesn't seem to work.  It ends up at a halt at $700.
-;
 68D: B0 0F 80 01 0F           BI   
                               CA    1           ; Fetch A from BI register 1.
                               BI   
@@ -371,8 +410,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68E - Command handler for Y - Print Register B.
 ;
-; Note: This doesn't seem to work.  It ends up at a halt at $700.
-;
 68E: B0 0F 80 05 0F           BI   
                               CA    5           ; Fetch B from BI register 5.
                               BI   
@@ -380,12 +417,114 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68F - Command handler for P1 - Read Program Tape.
 ;
+; TODO
+;
 68F: 00 84 ED E5 0D           CA    $4ED
                               JU    $50D
 ;
 ; $690 - Command handler for IIII - Run Application.
 ;
 690: 00 E4 C1 00 00           JU    $4C1
+4C1: 80 0F 84 52 22           BI   
+                              CA    $452
+                              XC    2
+;
+; $480 - Interpreter main execution loop.
+;
+; BI-2 contains the current instruction that is being executed.
+; Each instruction is 10 bits in length with 4 instructions per word.
+;
+; Start by shifting the current instruction word in BI-2 left by 10 bits to
+; remove the last instruction that we just executed.
+;
+480: 0E 84 84 2A 0A           CA    $484    ; Separate the top 10 bits and
+                              XT    2       ; bottom 30 bits of BI-2.
+40E: 29 B0 00 40 09           ST    0       ; Put the bottom 30 bits in BI-0.
+                              BLS   10      ; Shift out the last instruction.
+429: C0 11 22 F3 D7           TZ            ; Is the remainder of the word 0?
+                              XC    2       ; Put rest of the word into BI-2.
+                              JC    $3D7    ; If zero, goto $3D7.
+;
+; We now have the next instruction to be executed in the top 10 bits of BI-2.
+; Inspect the bit pattern to figure out how to handle the instruction:
+;
+;   00 00xx xxxx    Handled by $4D2
+;   00 01xx xxxx    Handled by $465
+;   0n nnyy yyyy    Handled by $3C0+0nnn    (variable register instructions)
+;   1n nyyy yyyy    Handled by $3C0+1nn0    (program register instructions)
+;
+4C0: 4E 84 44 3A 0A           CA    $444
+                              TG    2
+44E: 59 F4 D2 40 00           JC    $4D2    ; Goto $4D2 if 00 00xx xxxx.
+                              BLS   1
+459: 69 3A F4 65 0A           TG    2
+                              JC    $465    ; Goto $465 if 00 01xx xxxx.
+;
+; $469 - Determine if the instruction is 0n nnyy yyyy or 1n nyyy yyy.
+;
+469: 7A 80 02 12 0A           CA    2       ; Check the high bit of the
+                              TH            ; current instruction.
+47A: 07 84 7E D4 83           CA    $47E    ; A = $0003F00000 or $0007F00000
+                              AC    $483    ; based on high bit of 0 or 1.
+407: A3 28 48 03 20           XT    0       ; Extract nn and yy parts of the
+                              BRS   4       ; instruction, with yy in BI-0 and
+                              XC    0       ; the nn part in A.
+4A3: 30 48 01 94 2C           BRS   2
+                              AD    $42C
+430: 00 0D 00 00 00           JA            ; Jump to $3C0+nn.
+;
+; $465 - Handle instructions with the bit pattern 00 01xx xxxx.
+;
+465: 76 85 69 1A 0A           CA    $569    ; Extract the bottom 5 bits of
+                              LA    2       ; the instruction into A.
+;
+; The next two instructions format a sequence of instructions in A:
+;
+;   83 80 + xxxxx   CA $380+xxxxx           ; Load variable register xxxxx.
+;   20              XC 0                    ; Put it into BI-0.
+;   E4 0B           JU $40B                 ; Jump to $40B.
+;
+476: 30 48 05 92 84           BRS   6
+                              AD    $284
+                              JU    $430    ; Execute the instruction in A.
+569: 07 C0 00 00 00           DW    $07C0000000
+284: 83 80 20 E4 0B           DW    $838020E40B
+;
+; $4D2- Handle instructions with the bit pattern 00 00xx xxxx.
+;
+;   00 000x xxxx    Handled by $3D0+0xxxxx
+;   00 001x 0000    Handled by $3D0+1x0000
+;   00 001x yyyy    Handled by $405 if yyyy is non-zero
+;
+4D2: 5E 48 00 3A 0A           BRS   1       ; Check for 00 000x xxxx or
+                              TG    2       ; 00 001x xxxx.
+45E: 70 F4 62 84 74           JC    $462
+                              CA    $474    ; 00 001x xxxx case.
+470: 05 1A F4 62 0A           LA    2       ; Check for 00 001x 0000.
+                              JC    $462    ; If yes, use $462 to handle it.
+                              JU    $405    ; Otherwise use $405.
+462: 78 80 02 48 05           CA    2       ; 00 00nx xxxx case.
+                              BRS   6
+478: 00 94 7C 0D 00           AD    $47C    ; Dispatch nxxxxx to $3D0+nxxxxx.
+                              JA
+405: 11 94 09 0B 0A           AD    $409
+                              CM   
+411: 24 B0 00 27 21           ST    0
+                              XC    7
+                              XC    1
+424: 80 25 C4 28 0A           XC    5
+                              JM    $428        ; TODO
+                              JU    $480
+;
+409: 00 40 00 00 00           DW    $0040000000
+42C: E3 C0 00 00 00           DW    $E3C0000000
+444: 0F FF FF FF FF           DW    $0FFFFFFFFF
+452: 00 18 99 03 80           DW    $0018990380
+474: 03 C0 00 00 00           DW    $03C0000000
+47E: 00 03 F0 00 00           DW    $0003F00000
+47C: E3 D0 00 00 00           DW    $E3D0000000
+483: 00 04 00 00 00           DW    $0004000000
+484: 00 3F FF FF FF           DW    $003FFFFFFF
 ;
 ; $691 - Command handler for H - Select Hexadecimal Format.
 ;
@@ -486,6 +625,326 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 798: 98 78 3D F7 A0           OI    $3D     ; Output LF.
                               JC    $7A0
                               JU    $798
+;
+; The entry points at $3D0, $3D1, $3D2, etc are the opcoe handlers
+; for the interpreter.  Opcode N is handled by address $3D0+N.
+;
+; $3D0 - Opcode 0 - Print "EMPTY ERR" and return to the main loop.
+;
+3D0: F8 84 54 B0 00           CA    $454        ; "EMPTY" message.
+                              ST    0
+3F8: F9 7E 41 C6 D4           IS    $41
+                              JM    $6D4        ; Print "EMPTY".
+3F9: 00 E7 0C 00 00           JU    $70C        ; Print "ERR" and exit.
+454: 35 24 27 13 18 "EMPTY"   DW    $3524271318
+;
+; $3D1 - Opcode 1 - XCB - Exchange A and B.
+;
+3D1: 00 21 25 E3 FF           XC    1
+                              XC    5
+3FF: 00 B0 01 E4 80           ST    1
+                              JU    $480
+;
+; $3D2 - Opcode 2 - ADD - Add B to A.
+;
+3D2: FF 80 05 90 01           CA    5
+                              AD    1
+                              JU    $3FF
+;
+; $3D3 - Opcode 3 - ???
+;
+3D3: 00 84 FC E2 85           CA    $4FC
+285: 86 26 84 FB 22           XC    6
+                              CA    $4FB
+                              XC    2
+286: 00 E4 80 00 00           JU    $480
+;
+; $3D4 - Opcode 4 - JPS - Jump if positive.
+;
+3D4: 00 80 01 E4 5D           CA    1
+45D: 6F 12 F4 80 0A           TH
+                              JC    $480
+46F: 80 22 40 09 22           XC    2
+                              BLS   10
+                              XC    2
+                              JU    $480
+;
+; $3D5 - Opcode 5 - XCV - Exchange A and V00.
+;
+3D5: 00 83 80 E4 87           CA    $380
+487: 80 21 B3 80 0A           XC    1
+                              ST    $380
+                              JU    $480
+;
+; $3D6 - Opcode 6 - SCO - Single character output with odd parity.
+;
+3D6: 00 80 01 E4 E5           CA    1
+4E5: 00 40 1F E4 6A           BLS   32
+46A: 6A 70 00 F4 80           OAO  
+                              JC    $480
+                              JU    $46A
+;
+; $3D7 - Opcode 7 - ???
+;
+3D7: 00 26 94 61 0D           XC    6
+                              AD    $461
+                              JA
+461: 00 00 01 00 00           DW    $0000010000
+;
+; $3D8 - Opcode 8 - CLR - Clear A.
+;
+3D8: 00 09 E3 FF 00           CL   
+                              JU    $3FF
+;
+; $3D9 - Opcode 9 - NGA - Complement A.
+;
+3D9: 00 21 0B E3 FF           XC    1
+                              CM
+                              JU    $3FF
+;
+; $3DA - Opcode 10 - NGB - Complement B.
+;
+3DA: 00 25 0B E4 6B           XC    5
+                              CM   
+46B: 00 25 E4 80 00           XC    5
+                              JU    $480
+;
+; $3DB - Opcode 11 - ???
+;
+    ; TODO
+;
+; $3DC - Opcode 12 - ???
+;
+    ; TODO
+;
+; $3DD - Opcode 13 - ???
+;
+3DD: 00 83 83 E2 27           CA    $383
+                              JU    $227
+;
+; $3DE - Opcode 14 - SCI - Single character input.
+;
+3DE: DE 5C 00 F4 66           CIOP 
+                              JC    $466
+                              JU    $3DE
+466: 71 12 F4 6D 0A           TH   
+                              JC    $46D
+471: 00 E3 FF 00 00           JU    $3FF
+46D: 72 84 E7 48 03           CA    $4E7
+                              BRS   4
+472: 7B F7 77 04 0A           JC    $777
+                              HH    4
+47B: 00 E3 DE 00 00           JU    $3DE
+777: 00 02 E3 DE 00           HH    2
+                              JU    $3DE
+;
+; $3DF - Opcode 15 - OPUS - Return to OPUS.
+;
+3DF: 00 E7 FF 00 00           JU    $7FF
+;
+; $3E0 - Opcode 16 - ???
+;
+3E0: FA 82 23 B0 00           CA    $223
+                              ST    0
+3FA: FA 5C 00 F4 08           CIOP 
+                              JC    $408
+                              JU    $3FA
+408: 1B 12 F4 0F 30           TH   
+                              JC    $40F
+                              TE    0
+41B: 00 F4 80 E3 FA           JC    $480
+                              JU    $3FA
+40F: 00 04 E3 FA 00           HH    4
+                              JU    $3FA
+;
+; $3E1 - Opcode 17 - ???
+;
+3E1: 00 C6 65 E2 22           JM    $665
+                              JU    $222
+;
+; $3E2 - Opcode 18 - ???
+;
+3E2: 00 C6 65 E2 35           JM    $665
+                              JU    $235
+;
+; $3E3 - Opcode 19 - ???
+;
+3E3: 00 C6 65 E2 07           JM    $665
+                              JU    $207
+;
+; $3E4 - Opcode 20 - ???
+;
+3E4: FC 21 25 C6 70           XC    1
+                              XC    5
+                              JM    $670
+3FC: 00 E4 80 00 00           JU    $480
+;
+; $3E5 - Opcode 21 - ???
+;
+3E5: 00 83 87 E2 03           CA    $387
+                              JU    $203
+;
+; $3E6 - Opcode 22 - ???
+;
+3E6: 00 87 78 E2 27           CA    $778
+                              JU    $227
+;
+; $3E7 - Opcode 23 - ???
+;
+3E7: 00 82 23 E5 E0           CA    $223
+5E0: CC 25 86 C5 21           XC    5
+                              CA    $6C5
+                              XC    1
+5CC: CC 5C 00 F5 54           CIOP 
+                              JC    $554
+                              JU    $5CC
+554: E7 35 21 F5 64           TE    5
+                              XC    1
+                              JC    $564
+5E7: C3 40 07 90 01           BLS   8
+                              AD    1
+5C3: D1 B0 01 12 0A           ST    1
+                              TH   
+5D1: 00 F5 CC E4 80           JC    $5CC
+                              JU    $480
+564: C4 40 07 90 01           BLS   8
+                              AD    1
+5C4: D4 12 F5 CB 21           TH   
+                              JC    $5CB
+                              XC    1
+5D4: 00 E5 58 00 00           JU    $558
+5CB: 00 40 07 E5 C4           BLS   8
+                              JU    $5C4
+;
+; $3E8 - Opcode 24 - ???
+;
+3E8: 00 84 6C E6 E0           CA    $46C
+6E0: 77 25 80 01 24           XC    5
+                              CA    1
+                              XC    4
+677: C4 C7 B7 C7 B7           JM    $7B7
+                              JM    $7B7
+6C4: CD C7 B7 C7 B7           JM    $7B7
+                              JM    $7B7
+6CD: 00 C7 B7 E4 80           JM    $7B7
+                              JU    $480
+;
+; $3E9 - Opcode 25 - ???
+;
+3E9: 00 C6 70 E2 F4           JM    $670
+                              JU    $2F4
+;
+; $3EA - Opcode 26 - ???
+;
+3EA: 00 80 01 E4 75           CA    1
+475: 89 12 80 05 08           TH   
+                              CA    5
+                              AK   
+489: 2D 40 13 90 01           BLS   20
+                              AD    1
+42D: 00 B0 01 E3 E5           ST    1
+                              JU    $3E5
+;
+; $3EB - Opcode 27 - ???
+;
+3EB: 00 86 CA E5 CE           CA    $6CA
+5CE: E9 20 09 B0 05           XC    0
+                              CL   
+                              ST    5
+5E9: C7 60 81 B0 04           DLSC  2
+                              ST    4
+5C7: DE 21 B0 07 12           XC    1
+                              ST    7
+                              TH   
+5DE: 48 F5 62 21 0A           JC    $562
+                              XC    1
+548: C8 6A 09 C6 ED           DRD   10
+                              JM    $6ED
+5C8: CA C6 ED C6 ED           JM    $6ED
+                              JM    $6ED
+5CA: 50 C6 ED C6 ED           JM    $6ED
+                              JM    $6ED
+550: E4 0B 25 68 00           CM   
+                              XC    5
+                              DRS   1
+5E4: D0 60 00 90 05           DLS   1
+                              AD    5
+5D0: E8 B0 01 90 04           ST    1
+                              AD    4
+5E8: D9 0B 27 12 27           CM   
+                              XC    7
+                              TH   
+                              XC    7
+5D9: DD F5 DD 0B 0A           JC    $5DD
+                              CM   
+                              JU    $5DD
+562: 00 0B 21 E5 48           CM   
+                              XC    1
+                              JU    $548
+5DD: 00 B0 05 E4 80           ST    5
+                              JU    $480
+;
+; $3EC - Opcode 28 - ??? - Input with even parity.
+;
+3EC: 00 86 F0 E2 74           CA    $6F0
+274: D0 92 F9 B0 04           AD    $2F9
+                              ST    4
+2D0: 00 14 80 04 0D           TP   
+                              CA    4
+                              JA
+6F0: 00 40 00 00 00           DW    $0040000000
+2F9: 58 00 D2 88 14           DW    $5800D28814
+;
+; $3ED - Opcode 29 - ??? - Input with odd parity.
+;
+3ED: 00 09 E2 74 00           CL   
+                              JU    $274
+;
+; $3EE - Opcode 30 - SPEC - Single character output with no parity.
+;
+3EE: 00 80 01 E3 FD           CA    1
+3FD: 00 40 1F E4 A4           BLS   32
+4A4: A4 70 C0 F4 80           OA   
+                              JC    $480
+                              JU    $4A4
+;
+; $3EF - Opcode 31 - ???
+;
+3EF: 00 C6 65 E4 34           JM    $665
+434: 49 84 3F B0 05           CA    $43F
+                              ST    5
+449: 14 83 87 B0 00           CA    $387
+                              ST    0
+414: 2B 68 03 B0 07           DRS   4
+                              ST    7
+42B: 3C 3D F4 13 0A           TG    5
+                              JC    $413
+43C: 4B 60 03 0B 0A           DLS   4
+                              CM   
+44B: D9 90 00 3D 0A           AD    0
+                              TG    5
+4D9: 67 F4 13 10 08           JC    $413
+                              SK   
+                              AK   
+467: 8B 22 83 83 10           XC    2
+                              CA    $383
+                              SK   
+48B: 19 08 0B 25 0A           AK   
+                              CM   
+                              XC    5
+419: 68 82 D6 B0 01           CA    $2D6
+                              ST    1
+468: 7D 90 02 21 0A "         AD    2
+                              XC    1
+                              JU    $47D
+;
+; $3F0 - Opcode 32 - ???
+;
+3F0: 00 83 BE E4 C4           CA    $3BE
+4C4: 00 40 13 E4 DF           BLS   20
+4DF: 80 90 02 0A 22           AD    2
+                              XC    2
+                              JU    $480
 ;
 ;
 ;
@@ -1134,14 +1593,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JU    $538
 53A: 00 0F B0 00 0F " .& ."   DW    $000FB0000F
 53E: 00 00 00 00 06 "    6"   DW    $0000000006
-53F: B2 C5 35 C7 2E "B.E.."   JM    $535
-                              JM    $72E
-5B2: C2 C5 3B F2 C3 "....."   JM    $53B
-                              JC    $2C3
-5C2: BD C6 A1 C5 37 "..J.G"   JM    $6A1
-                              JM    $537
-5BD: 00 C6 BF E5 3F " ...."   JM    $6BF
-                              JU    $53F
 543: 00 07 07 E5 43 " 77.."   HH    7
                               HH    7
                               JU    $543
@@ -1285,10 +1736,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 566: 00 07 07 E5 66 " 77.."   HH    7
                               HH    7
                               JU    $566
-569: 07 C0 00 00 00 "7.   "   JM    0
-                              HH    0
-                              HH    0
-                              JU    $507
 56E: 00 00 00 00 03 "    3"   DW    $0000000003
 579: 86 00 22 E7 8D "6 K.."   DW    $860022E78D
 57F: 00 07 07 E5 7F " 77.."   HH    7
@@ -1762,8 +2209,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               HH    7
                               JU    $765
 767: 00 00 00 00 7F "    ."   DW    $000000007F
-777: 00 02 E3 DE 00 " 2.. "   HH    2
-                              JU    $3DE
 77F: 00 07 07 E7 7F " 77.."   HH    7
                               HH    7
                               JU    $77F
@@ -1806,7 +2251,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               HH    7
                               JU    $7E8
 7ED: E8 B7 89 18 00 ".G9Y "   DW    $E8B7891800
-7F0: 0A 5C 00 F5 0E "@. .."   DW    $0A5C00F50E
 7F7: FF FF FF FC 00 ".... "   JC    $FFF
                               JC    $C00
                               JU    $7FF
@@ -2153,9 +2597,4 @@ FFC: 00 00 00 00 00 "     "   DW    $0000000000
 FFD: 00 C9 E8 E8 36 " ...F"   JM    $9E8
                               JU    $836
 FFE: 00 00 01 D7 60 "  1.."   DW    $000001D760
-
-;
-; Constants.
-;
-710: 00 00 00 00 49           DW    $0000000049
 712: 00 00 00 00 1F           DW    $000000001F

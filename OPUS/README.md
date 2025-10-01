@@ -9,7 +9,7 @@ to aid in understanding.  This is still a work in progress.
 Some commands are working with the emulator and some are not or haven't
 been tested yet.  This list will be updated as more commands are made to work.
 
-* P1 - Read Program Tape - tries to do something, not fully verified
+* P1 - Read Program Tape - working
 * P2 - Verify Program Tape - tries to do something, not fully verified
 * IIII - Run Application - tries to do something, not fully verified
 * H - Select Hexadecimal Format - working
@@ -28,6 +28,6 @@ been tested yet.  This list will be updated as more commands are made to work.
 
 The following undocumented commands are also present in the command list:
 
-* J - ???
+* J - Halt - working
 * K - ???
 * G, I, M, U, Z - Same as P - working
