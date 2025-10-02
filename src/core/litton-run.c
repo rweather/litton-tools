@@ -768,6 +768,11 @@ litton_step_result_t litton_step(litton_state_t *state)
     }
     ++(state->spin_counter);
 
+    /* Decrement the acceleration counter every instruction */
+    if (state->acceleration_counter > 0) {
+        --(state->acceleration_counter);
+    }
+
     /* Dump the state of the registers before the instruction */
     if (state->disassemble) {
         fprintf(stderr,

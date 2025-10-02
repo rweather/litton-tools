@@ -87,6 +87,12 @@ int litton_is_output_busy(litton_state_t *state)
     return 0;
 }
 
+/** Temporarily allow the emulator to accelerate when text is pasted. */
+#define LITTON_ACCEL_COUNT 100
+
+/** Maximum acceleration counter */
+#define LITTON_ACCEL_MAX 10000
+
 void litton_output_to_device
     (litton_state_t *state, uint8_t value, litton_parity_t parity)
 {
@@ -96,6 +102,11 @@ void litton_output_to_device
             if (!(device->is_busy) || !((*device->is_busy))(state, device)) {
                 if (device->output != 0) {
                     (*(device->output))(state, device, value, parity);
+                    if (state->acceleration_counter != 0 &&
+                            state->acceleration_counter < LITTON_ACCEL_MAX) {
+                        /* Stay in accelerated mode for a little longer */
+                        state->acceleration_counter += LITTON_ACCEL_COUNT;
+                    }
                 }
             }
         }
@@ -111,6 +122,11 @@ int litton_input_from_device
         if (device->selected && device->supports_input) {
             if (device->input != 0) {
                 if ((*(device->input))(state, device, value, parity)) {
+                    /* Allow faster processing of pasted text if we
+                     * got an input character. */
+                    if (state->acceleration_counter < LITTON_ACCEL_MAX) {
+                        state->acceleration_counter += LITTON_ACCEL_COUNT;
+                    }
                     return 1;
                 }
             }

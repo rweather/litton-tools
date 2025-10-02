@@ -719,6 +719,10 @@ struct litton_state_s
      */
     unsigned spin_counter;
 
+    /** Counter that allows the emulator to temporarily accelerate when
+     *  input occurs to make sure we can keep up with pasted text. */
+    unsigned acceleration_counter;
+
     /** Non-zero to disasemble instructions to stderr as they are executed */
     int disassemble;
 

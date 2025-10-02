@@ -124,7 +124,8 @@ int main(int argc, char *argv[])
                 ++(sleep_to_time.tv_sec);
             }
             clock_gettime(CLOCK_MONOTONIC, &now_time);
-            if (now_time.tv_sec > sleep_to_time.tv_sec ||
+            if (machine.acceleration_counter != 0 ||
+                    now_time.tv_sec > sleep_to_time.tv_sec ||
                     (now_time.tv_sec == sleep_to_time.tv_sec &&
                      now_time.tv_nsec >= sleep_to_time.tv_nsec)) {
                 /* Deadline has already passed, so resynchronise on "now" */
