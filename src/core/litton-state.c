@@ -67,6 +67,9 @@ void litton_free(litton_state_t *state)
         if (device->close != 0) {
             (*(device->close))(state, device);
         }
+        if (device->file) {
+            fclose(device->file);
+        }
         free(device);
         device = next_device;
     }

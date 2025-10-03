@@ -435,6 +435,9 @@ struct litton_device_s
     /** Character set for this device */
     litton_charset_t charset;
 
+    /** Open tape file, or NULL */
+    FILE *file;
+
     /**
      * @brief Closes the device prior to it being freed.
      *
@@ -536,6 +539,16 @@ struct litton_device_s
  * litton_free() is called.
  */
 void litton_add_device(litton_state_t *state, litton_device_t *device);
+
+/**
+ * @brief Finds a specific device.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] id Identifier of the device to find.
+ *
+ * @return A pointer to the device, or NULL if @a id was not found.
+ */
+litton_device_t *litton_find_device(litton_state_t *state, uint8_t id);
 
 /**
  * @brief Selects a specific device (or devices) to be the current one.
@@ -912,35 +925,70 @@ void litton_add_tape_reader
     (litton_state_t *state, uint8_t id, litton_charset_t charset);
 
 /**
- * @brief Adds an input tape to the computer.
+ * @brief Sets the tape reader to read from an input file.
  *
  * @param[in,out] state The state of the computer.
- * @param[in] id The device identifier for the input tape.
- * @param[in] charset The character set for the data on the tape.
  * @param[in] filename The name of the file to pretend to be the input tape.
  *
+ * @return Non-zero if the file was opened and associated with the
+ * tape reader, or zero if an error occurred.
+ *
  * The tape data in the file is assumed to be in ASCII.  ASCII will be
- * converted into the nominated character set as the tape is read.
+ * converted into the tape reader's character set as the tape is read.
+ *
+ * If there is already a tape file mounted on the tape reader, this
+ * function will close the existing file and open a new one.
  */
-void litton_add_input_tape
-    (litton_state_t *state, uint8_t id, litton_charset_t charset,
-     const char *filename);
+int litton_set_input_tape(litton_state_t *state, const char *filename);
 
 /**
- * @brief Adds an output tape to the computer.
+ * @brief Close the input tape file, if any.
  *
  * @param[in,out] state The state of the computer.
- * @param[in] id The device identifier for the output tape.
- * @param[in] charset The character set for the data on the tape.
- * @param[in] filename The name of the file to pretend to be the output tape.
+ */
+void litton_close_input_tape(litton_state_t *state);
+
+/**
+ * @brief Determine if there is an input tape file mounted.
+ *
+ * @param[in,out] state The state of the computer.
+ *
+ * @return Non-zero if an input tape file is mounted, zero if not.
+ */
+int litton_has_input_tape(litton_state_t *state);
+
+/**
+ * @brief Sets the tape punch to write to a specific output file.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] filename The name of the file to write to.
+ * @param[in] append Non-zero to append to the file, zero to truncate.
+ *
+ * @return Non-zero if the file was opened and associated with the
+ * tape punch, or zero if an error occurred.
  *
  * The data written to the tape by the program is assumed to be in the
  * nominated character set.  It will be converted into ASCII before being
  * written to the file.
  */
-void litton_add_output_tape
-    (litton_state_t *state, uint8_t id, litton_charset_t charset,
-     const char *filename);
+int litton_set_output_tape
+    (litton_state_t *state, const char *filename, int append);
+
+/**
+ * @brief Close the output tape file, if any.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_close_output_tape(litton_state_t *state);
+
+/**
+ * @brief Determine if there is an output tape file mounted.
+ *
+ * @param[in,out] state The state of the computer.
+ *
+ * @return Non-zero if an output tape file is mounted, zero if not.
+ */
+int litton_has_output_tape(litton_state_t *state);
 
 /**
  * @brief Converts ASCII characters into a specific character set.

@@ -35,6 +35,18 @@ void litton_add_device(litton_state_t *state, litton_device_t *device)
     state->devices = device;
 }
 
+litton_device_t *litton_find_device(litton_state_t *state, uint8_t id)
+{
+    litton_device_t *device = state->devices;
+    while (device != 0) {
+        if (device->id == id) {
+            break;
+        }
+        device = device->next;
+    }
+    return device;
+}
+
 static void litton_deselect_device
     (litton_state_t *state, litton_device_t *device)
 {
@@ -477,27 +489,19 @@ static void litton_tape_punch_output
 {
     int ch;
     const char *string_form;
-    (void)state;
-    if (device->charset == LITTON_CHARSET_HEX) {
-        if (device->print_position > 0) {
-            putc(' ', stdout);
-        }
-        printf("%02X", value);
-        ++(device->print_position);
-        if (device->print_position >= 16) {
-            printf("\n");
-            device->print_position = 0;
-        }
-    } else {
-        value = litton_remove_parity(value, parity);
-        ch = litton_char_from_charset(value, device->charset, &string_form);
-        if (ch == -1) {
-            fputs(string_form, stdout);
-        } else {
-            putc(ch, stdout);
-        }
+    FILE *file = device->file;
+    if (!file) {
+        file = stdout;
     }
-    fflush(stdout);
+    (void)state;
+    value = litton_remove_parity(value, parity);
+    ch = litton_char_from_charset(value, device->charset, &string_form);
+    if (ch == -2) {
+        fputs(string_form, file);
+    } else {
+        putc(ch, file);
+    }
+    fflush(file);
 }
 
 void litton_add_tape_punch
@@ -516,13 +520,63 @@ static int litton_tape_reader_input
     (litton_state_t *state, litton_device_t *device,
      uint8_t *value, litton_parity_t parity)
 {
-    /* Find the keyboard device and read from that instead */
-    device = state->devices;
-    while (device != 0) {
-        if (device->id == LITTON_DEVICE_KEYBOARD) {
-            return (*(device->input))(state, device, value, parity);
+    char buffer[16];
+    int ch, lastch;
+    size_t posn, len;
+
+    /* Read from the tape input file if we have one */
+    if (device->file) {
+        ch = getc(device->file);
+        if (ch != EOF) {
+            if (device->charset == LITTON_CHARSET_EBS1231) {
+                buffer[0] = (char)ch;
+                len = 1;
+                if (ch == '[') {
+                    /* Special function key sequence [x] */
+                    lastch = ']';
+                } else if (ch == '{') {
+                    /* Printer position sequence {n} */
+                    lastch = '}';
+                } else {
+                    /* Singleton character */
+                    lastch = 0;
+                }
+                while (lastch && len < sizeof(buffer)) {
+                    ch = getc(device->file);
+                    if (ch == EOF || ch == lastch) {
+                        break;
+                    }
+                    buffer[len++] = (char)ch;
+                }
+                posn = 0;
+                ch = litton_char_to_charset
+                    (buffer, &posn, len, LITTON_CHARSET_EBS1231);
+                if (ch >= 0) {
+                    *value = litton_add_parity(ch, parity);
+                    return 1;
+                }
+                return 0;
+            } else {
+                /* Plain ASCII tape */
+                if (device->charset == LITTON_CHARSET_UASCII) {
+                    if (ch >= 'a' && ch <= 'z') {
+                        ch = ch - 'a' + 'A';
+                    }
+                }
+                *value = litton_add_parity(ch, parity);
+                return 1;
+            }
         }
-        device = device->next;
+
+        /* File is exhausted, so close it and revert to the keyboard */
+        fclose(device->file);
+        device->file = 0;
+    }
+
+    /* Find the keyboard device and read from that instead */
+    device = litton_find_device(state, LITTON_DEVICE_KEYBOARD);
+    if (device != 0) {
+        return (*(device->input))(state, device, value, parity);
     }
     return 0;
 }
@@ -539,26 +593,81 @@ void litton_add_tape_reader
     litton_add_device(state, device);
 }
 
-void litton_add_input_tape
-    (litton_state_t *state, uint8_t id, litton_charset_t charset,
-     const char *filename)
+int litton_set_input_tape(litton_state_t *state, const char *filename)
 {
-    // TODO
-    (void)state;
-    (void)id;
-    (void)charset;
-    (void)filename;
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_READER);
+    if (!device) {
+        fprintf(stderr, "No tape reader device available\n");
+        return 0;
+    }
+    if (device->file) {
+        fclose(device->file);
+    }
+    device->file = fopen(filename, "r");
+    if (device->file == 0) {
+        perror(filename);
+        return 0;
+    }
+    return 1;
 }
 
-void litton_add_output_tape
-    (litton_state_t *state, uint8_t id, litton_charset_t charset,
-     const char *filename)
+void litton_close_input_tape(litton_state_t *state)
 {
-    // TODO
-    (void)state;
-    (void)id;
-    (void)charset;
-    (void)filename;
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_READER);
+    if (device != 0) {
+        if (device->file) {
+            fclose(device->file);
+            device->file = 0;
+        }
+    }
+}
+
+int litton_has_input_tape(litton_state_t *state)
+{
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_READER);
+    return device != 0 && device->file != 0;
+}
+
+int litton_set_output_tape
+    (litton_state_t *state, const char *filename, int append)
+{
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_PUNCH);
+    if (!device) {
+        fprintf(stderr, "No tape punch device available\n");
+        return 0;
+    }
+    if (device->file) {
+        fclose(device->file);
+    }
+    device->file = fopen(filename, append ? "a" : "w");
+    if (device->file == 0) {
+        perror(filename);
+        return 0;
+    }
+    return 1;
+}
+
+void litton_close_output_tape(litton_state_t *state)
+{
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_PUNCH);
+    if (device != 0) {
+        if (device->file) {
+            fclose(device->file);
+            device->file = 0;
+        }
+    }
+}
+
+int litton_has_output_tape(litton_state_t *state)
+{
+    litton_device_t *device;
+    device = litton_find_device(state, LITTON_DEVICE_PUNCH);
+    return device != 0 && device->file != 0;
 }
 
 /** Mapping table from Appendix V of the EBS/1231 System Programming Manual */
