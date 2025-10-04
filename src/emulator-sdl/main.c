@@ -934,6 +934,28 @@ static int keyboard_input
     return 0;
 }
 
+static int paper_tape_input
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t *value, litton_parity_t parity)
+{
+    // TODO
+    return 0;
+}
+
+static int paper_tape_output_is_busy
+    (litton_state_t *state, litton_device_t *device)
+{
+    /* If we don't have a tape file mounted, then the tape punch is busy */
+    (void)state;
+    return device->file == NULL;
+}
+
+static void paper_tape_output
+    (litton_state_t *state, litton_device_t *device,
+     uint8_t value, litton_parity_t parity)
+{
+}
+
 static void create_devices(void)
 {
     litton_device_t *device;
@@ -960,6 +982,25 @@ static void create_devices(void)
     device->supports_output = 0;
     device->charset = machine.keyboard_charset;
     device->input = keyboard_input;
+    litton_add_device(&machine, device);
+
+    /* Create the paper tape reader device */
+    device = calloc(1, sizeof(litton_device_t));
+    device->id = LITTON_DEVICE_READER;
+    device->supports_input = 1;
+    device->supports_output = 0;
+    device->charset = LITTON_CHARSET_EBS1231;
+    device->input = paper_tape_input;
+    litton_add_device(&machine, device);
+
+    /* Create the paper tape punch device */
+    device = calloc(1, sizeof(litton_device_t));
+    device->id = LITTON_DEVICE_PUNCH;
+    device->supports_input = 0;
+    device->supports_output = 1;
+    device->charset = LITTON_CHARSET_EBS1231;
+    device->is_busy = paper_tape_output_is_busy;
+    device->output = paper_tape_output;
     litton_add_device(&machine, device);
 }
 
