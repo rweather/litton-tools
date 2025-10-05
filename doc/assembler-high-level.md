@@ -53,19 +53,19 @@ Instructions are encoded as 10-bit values, packed 4 to a word.
 <tr><td><tt>01D</tt></td><td><tt>DUPO</tt></td><td>Duplicate Data With Odd Parity</td><td> </td><td> </td><td>???</td></tr>
 <tr><td><tt>01F</tt></td><td><tt>SPEC</tt></td><td>Output Special Data</td><td> </td><td> </td><td>Write a single character from A to the output device with no parity control</td></tr>
 <tr><td><tt>040 + nn</tt></td><td><tt>MDVnn</tt></td><td>Multiply - Divide</td><td>0-31</td><td>A</td><td>Sets A to (A * B / Vnn)</td></tr>
+<tr><td><tt>060 + nn</tt></td><td><tt>OUTnn</tt></td><td>Output</td><td>0-31</td><td> </td><td>Outputs the value in A according to the formatting rules in Vnn.</td></tr>
 <tr><td><tt>080 + nn</tt></td><td><tt>ACCnn</tt></td><td>Accumulate Vnn</td><td>0-63</td><td>A</td><td>Set A to A + Vnn</td></tr>
 <tr><td><tt>0C0 + nn</tt></td><td><tt>BVnn</tt></td><td>Bring Vnn</td><td>0-63</td><td>A, B</td><td>Transfer A to B and bring the contents of Vnn into A</td></tr>
 <tr><td><tt>100 + nn</tt></td><td><tt>SVnn</tt></td><td>Store to Vnn</td><td>0-63</td><td>Vnn</td><td>Store A to Vnn</td></tr>
 <tr><td><tt>140 + nn</tt></td><td><tt>UVnn</tt></td><td>Update Vnn</td><td>0-63</td><td>Vnn</td><td>Set Vnn to Vnn + A</td></tr>
+<tr><td><tt>1C0 + p</tt></td><td><tt>DUPnnn</tt></td><td>Duplicate</td><td>0-190</td><td> </td><td>??? nnn must have the form p * 3 + 1</td></tr>
+<tr><td><tt>200 + nn</tt></td><td><tt>COnn</tt></td><td>Character Output</td><td>0-63</td><td> </td><td>Outputs the literal character code nn</td></tr>
+<tr><td><tt>240 + p</tt></td><td><tt>TABnnn</tt></td><td>Tab</td><td>1-190</td><td> </td><td>Tab across to position nnn on the printer.  Only works if nnn is of the form p * 3 + 1 for p = 1 to 63.</td></tr>
 <tr><td><tt>280 + nnn</tt></td><td><tt>JMKnnn</tt></td><td>Jump Mark</td><td>0-127</td><td> </td><td>Marks the current program location and jumps to program register nnn.  Control returns to the next instruction when a <tt>JR</tt> instruction is encountered.</td></tr>
 <tr><td><tt>300 + nnn</tt></td><td><tt>JZPnnn</tt></td><td>Jump Zero</td><td>0-127</td><td> </td><td>Jumps to program register nn if A is zero; or decrement A and continue or if A is non-zero.</td></tr>
 <tr><td><tt>380 + nnn</tt></td><td><tt>JUPnnn</tt></td><td>Jump Unconditional</td><td>0-127</td><td> </td><td>Jumps to program register nnn</td></tr>
 <tr><td><tt> </tt></td><td><tt>SELnn</tt></td><td>Select Channels</td><td>0-63</td><td> </td><td>Selects I/O devices according to the 6-bit value nn</td></tr>
 <tr><td><tt> </tt></td><td><tt>INnn</tt></td><td>Input</td><td>1-10</td><td> </td><td>B is copied to A, and up to nn digits are input into A.  V00 will be set based on the key that is used to terminate the input.</td></tr>
-<tr><td><tt> </tt></td><td><tt>OUTnn</tt></td><td>Output</td><td>0-31</td><td> </td><td>Outputs the value in A according to the formatting rules in Vnn.</td></tr>
-<tr><td><tt> </tt></td><td><tt>DUPnnn</tt></td><td>Duplicate</td><td>0-190</td><td> </td><td>???</td></tr>
-<tr><td><tt> </tt></td><td><tt>COnn</tt></td><td>Character Output</td><td>0-63</td><td> </td><td>Outputs the literal character code nn</td></tr>
-<tr><td><tt> </tt></td><td><tt>TABnnn</tt></td><td>Tab</td><td>1-190</td><td> </td><td>Tab across to position nnn on the printer</td></tr>
 </table>
 
 ## Input field terminators
