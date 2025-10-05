@@ -132,6 +132,7 @@ static void litton_single_left_shift
         A = (A << 1) | K;
         final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
+        K = 0;
         --N;
     }
     *word = A;
@@ -152,6 +153,7 @@ static void litton_double_left_shift
         A = (A << 1) | final_K;
         final_K = (A >> LITTON_WORD_BITS);
         A &= LITTON_WORD_MASK;
+        K = 0;
         --N;
     }
     *word1 = A;
@@ -232,7 +234,7 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_left_shift
-            (state, &(state->drum[0]), &(state->drum[1]),
+            (state, &(state->drum[1]), &(state->drum[0]),
              (insn & 0xFF80) == LOP_BLD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
@@ -245,7 +247,7 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_left_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]),
+            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]),
              (insn & 0xFF80) == LOP_BLDS ? 0 : K, 1);
         break;
 
@@ -278,7 +280,7 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_right_shift
-            (state, &(state->drum[0]), &(state->drum[1]),
+            (state, &(state->drum[1]), &(state->drum[0]),
              (insn & 0xFF80) == LOP_BRD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
@@ -291,7 +293,7 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_right_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]),
+            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]),
              (insn & 0xFF80) == LOP_BRDS ? 0 : K, 1);
         break;
 
@@ -390,7 +392,7 @@ static void litton_double_div_10
         litton_double_times_2(word1, word2);
         if (remainder >= 10) {
             remainder -= 10;
-            *word1 |= 1;
+            *word2 |= 1;
         }
     }
 }
@@ -455,7 +457,7 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_left_shift
-            (state, &(state->drum[0]), &(state->drum[1]), 0, (insn & 0x7F) + 1);
+            (state, &(state->drum[1]), &(state->drum[0]), 0, (insn & 0x7F) + 1);
         break;
 
     case LOP_DLDC:
@@ -464,7 +466,7 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_left_shift
-            (state, &(state->drum[0]), &(state->drum[1]), 1, (insn & 0x7F) + 1);
+            (state, &(state->drum[1]), &(state->drum[0]), 1, (insn & 0x7F) + 1);
         break;
 
     case LOP_DLDS:
@@ -475,7 +477,7 @@ static litton_step_result_t litton_decimal_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_decimal_left_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]), 0, 1);
+            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]), 0, 1);
         break;
 
     case LOP_DLDSC:
@@ -486,7 +488,7 @@ static litton_step_result_t litton_decimal_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_decimal_left_shift
-            (state, &(state->drum[S]), &(state->drum[(S + 1) & 0x07]), 1, 1);
+            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]), 1, 1);
         break;
 
     case LOP_DRS:
@@ -502,7 +504,7 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_right_shift
-            (state, &(state->drum[0]), &(state->drum[1]), (insn & 0x7F) + 1);
+            (state, &(state->drum[1]), &(state->drum[0]), (insn & 0x7F) + 1);
         break;
 
     default:
@@ -776,9 +778,11 @@ litton_step_result_t litton_step(litton_state_t *state)
     /* Dump the state of the registers before the instruction */
     if (state->disassemble) {
         fprintf(stderr,
-                "\rCR=%02X, I=%010LX, A=%010LX, B=%02X, K=%d, P=%d, PC=",
+                "\rCR=%02X, I=%010LX, A=%010LX, B=%02X, S0=%010LX, S1=%010LX, K=%d, P=%d, PC=",
                 state->CR, (unsigned long long)(state->I),
                 (unsigned long long)(state->A), state->B,
+                (unsigned long long)(state->drum[0]),
+                (unsigned long long)(state->drum[1]),
                 state->K, state->P);
     }
 
