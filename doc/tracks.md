@@ -20,20 +20,20 @@ Usage of the tracks on the drum
 <tr><td>13</td><td>$680 to $6FF</td><td>OPUS</td></tr>
 <tr><td>14</td><td>$700 to $77F</td><td>OPUS</td></tr>
 <tr><td>15</td><td>$780 to $7FF</td><td>OPUS</td></tr>
-<tr><td>16</td><td>$800 to $87F</td><td> </td></tr>
-<tr><td>17</td><td>$880 to $8FF</td><td> </td></tr>
-<tr><td>18</td><td>$900 to $97F</td><td> </td></tr>
-<tr><td>19</td><td>$980 to $9FF</td><td> </td></tr>
-<tr><td>20</td><td>$A00 to $A7F</td><td> </td></tr>
-<tr><td>21</td><td>$A80 to $AFF</td><td> </td></tr>
-<tr><td>22</td><td>$B00 to $B7F</td><td> </td></tr>
-<tr><td>23</td><td>$B80 to $BFF</td><td> </td></tr>
-<tr><td>24</td><td>$C00 to $C7F</td><td> </td></tr>
-<tr><td>25</td><td>$C80 to $CFF</td><td> </td></tr>
-<tr><td>26</td><td>$D00 to $D7F</td><td> </td></tr>
-<tr><td>27</td><td>$D80 to $DFF</td><td> </td></tr>
-<tr><td>28</td><td>$E00 to $E7F</td><td> </td></tr>
-<tr><td>29</td><td>$E80 to $EFF</td><td> </td></tr>
+<tr><td>16</td><td>$800 to $87F</td><td>Free space</td></tr>
+<tr><td>17</td><td>$880 to $8FF</td><td>Free space</td></tr>
+<tr><td>18</td><td>$900 to $97F</td><td>Free space</td></tr>
+<tr><td>19</td><td>$980 to $9FF</td><td>Free space</td></tr>
+<tr><td>20</td><td>$A00 to $A7F</td><td>Free space</td></tr>
+<tr><td>21</td><td>$A80 to $AFF</td><td>Free space</td></tr>
+<tr><td>22</td><td>$B00 to $B7F</td><td>Free space</td></tr>
+<tr><td>23</td><td>$B80 to $BFF</td><td>Free space</td></tr>
+<tr><td>24</td><td>$C00 to $C7F</td><td>Free space</td></tr>
+<tr><td>25</td><td>$C80 to $CFF</td><td>Free space</td></tr>
+<tr><td>26</td><td>$D00 to $D7F</td><td>Free space</td></tr>
+<tr><td>27</td><td>$D80 to $DFF</td><td>Free space</td></tr>
+<tr><td>28</td><td>$E00 to $E7F</td><td>Free space</td></tr>
+<tr><td>29</td><td>$E80 to $EFF</td><td>Free space</td></tr>
 <tr><td>30</td><td>$F00 to $F7F</td><td>OPUS</td></tr>
 <tr><td>31</td><td>$F80 to $FFF</td><td>OPUS</td></tr>
 </table>
