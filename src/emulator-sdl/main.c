@@ -700,7 +700,12 @@ static void printer_output
      uint8_t value, litton_parity_t parity)
 {
     (void)device;
-    if (state->printer_charset != LITTON_CHARSET_HEX) {
+    if (state->printer_charset == LITTON_CHARSET_EBS1231 &&
+            parity == LITTON_PARITY_NONE) {
+        /* Sometimes OPUS outputs a character with "OI" or "OA"
+         * that already has the parity bit set.  Strip it off. */
+        value = litton_remove_parity(value, LITTON_PARITY_ODD);
+    } else if (state->printer_charset != LITTON_CHARSET_HEX) {
         value = litton_remove_parity(value, parity);
     }
     if (state->printer_charset == LITTON_CHARSET_EBS1231) {

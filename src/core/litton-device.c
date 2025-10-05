@@ -135,8 +135,9 @@ int litton_input_from_device
             if (device->input != 0) {
                 if ((*(device->input))(state, device, value, parity)) {
                     /* Allow faster processing of pasted text if we
-                     * got an input character. */
-                    if (state->acceleration_counter < LITTON_ACCEL_MAX) {
+                     * got an input character from the paper tape. */
+                    if (device->id == LITTON_DEVICE_READER &&
+                            state->acceleration_counter < LITTON_ACCEL_MAX) {
                         state->acceleration_counter += LITTON_ACCEL_COUNT;
                     }
                     return 1;
@@ -221,7 +222,12 @@ static void litton_printer_output
      uint8_t value, litton_parity_t parity)
 {
     (void)state;
-    if (device->charset != LITTON_CHARSET_HEX) {
+    if (device->charset == LITTON_CHARSET_EBS1231 &&
+            parity == LITTON_PARITY_NONE) {
+        /* Sometimes OPUS outputs a character with "OI" or "OA"
+         * that already has the parity bit set.  Strip it off. */
+        value = litton_remove_parity(value, LITTON_PARITY_ODD);
+    } else if (device->charset != LITTON_CHARSET_HEX) {
         value = litton_remove_parity(value, parity);
     }
     if (device->charset == LITTON_CHARSET_EBS1231) {
@@ -263,6 +269,7 @@ static void litton_printer_output
             } else if (ch >= 0) {
                 /* Single character */
                 putc(ch, stdout);
+                ++(device->print_position);
             } else if (ch == -2) {
                 /* Multi-character string */
                 fputs(string_form, stdout);
