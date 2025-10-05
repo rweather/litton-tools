@@ -19,12 +19,12 @@ been tested yet.  This list will be updated as more commands are made to work.
 * P - Select Program Registers - working
 * Q - Change Register - crashing
 * R - Reset Memory - working
-* S - Store Instructions or Data - crashing
-* T - Punch Program onto Tape - crashing
+* S - Store Instructions or Data - working
+* T - Punch Program onto Tape - working
 * V - Select Store Registers - working
-* W - Print Registers - crashing
-* X - Print Register A - crashing
-* Y - Print Register B - crashing
+* W - Print Registers - working
+* X - Print Register A - working
+* Y - Print Register B - working
 
 The following undocumented commands are also present in the command list:
 

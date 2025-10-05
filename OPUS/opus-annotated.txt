@@ -10,15 +10,20 @@
 ;   $4EB    ???
 ;   $4ED    Mode: 1 = program registers, -1 = storage registers, 0 = hex mode.
 ;   $4F1    Link address for subroutines.
+;   $4F2    Link address for subroutines.
 ;   $4F4    Register number that was entered by the user.
-;   $4FE    Link address for subroutines.
-;   $4FF    ???
+;   $4FB    Return instruction for the high-level interpreter, used by JR & JMK.
+;   $4FC    Return address for the high-level interpreter, used by JR & JMK.
+;   $4FD    Contents of a register when fetching from memory.
+;   $4FE    Link address for low-level subroutines.
+;   $4FF    Character input routine that waits for input and then jumps to $50E.
 ;
 ; The block interchange contains the high-level language's state:
 ;
 ;   BI-1    A register
 ;   BI-2    Current instruction word being executed, 10 bits per instruction
 ;   BI-5    B register
+;   BI-6    Address of the current instruction word being executed
 ;
 
 ;
@@ -36,8 +41,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               IS    $49         ; Select keyboard and printer.
 787: 6C 87 10 B4 E7           CA    $710        ; Load $49 into A
                               ST    $4E7        ; and store it to $4E7.
-76C: 88 87 F0 B4 FF           CA    $7F0
-                              ST    $4FF
+76C: 88 87 F0 B4 FF           CA    $7F0        ; Set $4F0 to a character
+                              ST    $4FF        ; input routine.
 788: 14 C7 8A 09 10           JM    $78A        ; Print a CRLF.
                               CL   
                               SK   
@@ -127,22 +132,29 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 711: 00 00 00 03 FF           DW    $00000003FF
 713: 7E 00 E0 00 00           DW    $7E00E00000
 ;
-; $600 - Command information table.
+; $600 - Character information table.  Different bits of this table
+; provide information about characters for the command loop, number
+; parsing, number formatting, etc.
 ;
 ; Each word in this table provides information about the characters
 ; 000 to 077 (octal).  This table is used to help dispatch commands.
 ;
 ;   Bit     Meaning
-;   0       1 if the command character is valid, 0 if invalid.
+;   0       1 for command character, 0 for parsed digit value
 ;   1       ???
 ;   2       ???
-;   3       0 if the command character is valid, 1 if invalid.
-;   4-9     N, address of the command handler which is at $680 + N.
-;   10-39   ???
+;   3       0 if the character is valid as a command, 1 if valid as a digit.
+;   4-9     N, address of the command handler ($680 + N) if bit 0 is 1.
+            N, the parsed digit value if bit 0 is 0.
+;   10-31   ???
+;   32-39   Odd words map digits 0-9,A-F to their character code form.
+;
+; The high byte in words $601, $603, $605, etc provide the character codes
+; for digits 0-9,A-F for use in number formatting.
 ;
 600: 4B 58 C0 01 04     ; Space
-601: 00 7F C0 7E 04     ; 1
-602: 7E 84 7D C0 7C     ; 2
+601: 10 7F C0 00 18     ; 1             ; CORRUPT!  FIXME!
+602: 7E 84 7D 00 28     ; 2             ; CORRUPT!  FIXME!
 603: 01 50 00 80 3A     ; 3
 604: 99 44 C0 00 48     ; 4
 605: 02 42 01 80 58     ; 5
@@ -204,6 +216,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 63D: 00 80 00 45 04     ; Index Left
 63E: D3 94 93 00 00     ; Backspace
 63F: 00 80 00 4C 00     ; Carriage Open or Close
+;
 ;
 ; $534 and $5BC - Control returns to one of these addresses when a command
 ; handler finishes processing.  Print a CRLF and jump back to the main loop.
@@ -270,13 +283,29 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 685: 00 87 42 E7 C6           CA    $742
 7C6: 00 B4 E6 E5 34           ST    $4E6
                               JU    $534
-742: C9 14 8A 45 20           DW    $C9148A4520 ; Edit word for decimal?
+;
+; $742 - Edit word for formatting numbers in decimal.
+;
+; $C9148A4520 is 14442442442440 in octal which indicates:
+;
+;       1       Show the sign before the number
+;       444     Decimal digits with leading zero suppression
+;       244     Comma, then decimal digits with leading zero suppression
+;       0       Trailing space
+;
+742: C9 14 8A 45 20           DW    $C9148A4520
 ;
 ; $686 - Command handler for O - Select Octal Format.
 ;
+; $67B3D9ECF6 is 06366366366366 in octal which indicates:
+;
+;       0       No leading sign
+;       6       Single octal digit
+;       366     Comma and then three octal digits
+;
 686: 00 87 F6 E7 C6           CA    $7F6
                               JU    $7C6
-7F6: 67 B3 D9 EC F6           DW    $67B3D9ECF6 ; Edit word for octal?
+7F6: 67 B3 D9 EC F6           DW    $67B3D9ECF6 ; Edit word for octal.
 ;
 ; $687 - Command handler for T - Punch Program onto Tape.
 ;
@@ -291,10 +320,10 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 688: 00 C5 76 E5 3F           JM    $576        ; Prompt for register number.
 53F: B2 C5 35 C7 2E           JM    $535        ; Move print head to column 19.
-                              JM    $72E        ; ???
-5B2: C2 C5 3B F2 C3           JM    $53B        ; ???
-                              JC    $2C3
-5C2: BD C6 A1 C5 37           JM    $6A1        ; ???
+                              JM    $72E        ; Read memory at $4F4 into $4FD.
+5B2: C2 C5 3B F2 C3           JM    $53B        ; Are we in program reg mode?
+                              JC    $2C3        ; Yes, jump to $2C3.
+5C2: BD C6 A1 C5 37           JM    $6A1        ; Print the value in $4FD.
                               JM    $537
 5BD: 00 C6 BF E5 3F           JM    $6BF
                               JU    $53F
@@ -381,21 +410,52 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68C - Command handler for W - Print Registers in a range.
 ;
-; TODO
-;
 68C: 00 C5 76 E5 41           JM    $576        ; Prompt for first register.
 541: B3 C5 0F C7 8A           JM    $50F        ; Prompt for last register.
                               JM    $78A        ; Print CRLF.
-5B3: BA C6 99 C5 35           JM    $699        ; ???
+5B3: BA C6 99 C5 35           JM    $699        ; Print the register number.
                               JM    $535        ; Move print head to column 19.
-5BA: C0 C7 2E C5 3B           JM    $72E        ; ???
-                              JM    $53B        ; ???
-5C0: B8 F2 C7 C6 A1           JC    $2C7        ; ???
-                              JM    $6A1        ; ???
+5BA: C0 C7 2E C5 3B           JM    $72E        ; Read memory at $4F4 into $4FD.
+                              JM    $53B        ; Are we in program reg mode?
+5C0: B8 F2 C7 C6 A1           JC    $2C7        ; Yes, jump to $2C7.
+                              JM    $6A1        ; Print the value in $4FD.
 5B8: B4 C7 8A C7 95           JM    $78A        ; Print CRLF.
-                              JM    $795        ; ???
+                              JM    $795        ; Check for the end of all regs.
 5B4: 00 F5 BC E5 B3           JC    $5BC        ; Jump to $5BC if we are done.
                               JU    $5B3        ; Go back for the next register.
+2C7: 00 C2 2A E4 AF           JM    $22A
+4AF: A8 C4 0A 84 F8           JM    $40A
+                              CA    $4F8
+4A8: B5 11 F4 B1 0A           TZ   
+                              JC    $4B1
+4B5: B2 B0 00 C2 2D           ST    0
+                              JM    $22D
+4B2: C5 24 11 F4 C2           XC    4
+                              TZ   
+                              JC    $4C2
+4C5: 2A 94 61 24 0A           AD    $461
+                              XC    4
+42A: 00 C5 36 E4 AF           JM    $536
+                              JU    $4AF
+4B1: DD 84 54 B0 00           CA    $454
+                              ST    0
+                              JU    $4DD
+4C2: 00 C7 8A E5 B8           JM    $78A        ; Print a CRLF.
+5B8: B4 C7 8A C7 95           JM    $78A        ; Print another CRLF.
+                              JM    $795
+5B4: 00 F5 BC E5 B3           JC    $5BC
+                              JU    $5B3        ; Go back for the next register.
+;
+; $53B - Copies $676 to S4 and sets K to 1 if program register mode is active.
+;
+53B: AF B4 F2 86 76 ".D.6."   ST    $4F2        ; Put return address in $4F2.
+                              CA    $676
+5AF: B1 24 84 ED 0B "AM4.#"   XC    4           ; Put contents of $676 in S4.
+                              CA    $4ED        ; Get the register mode.
+                              CM                ; Negate the mode.
+5B1: 00 08 E4 F2 00 " 8.. "   AK                ; Add 1 if mode was non-zero.
+                              JU    $4F2        ; K is set now if $4ED was 1.
+676: FF FF FD 00 00           DW    $FFFFFD0000
 ;
 ; $68D - Command handler for X - Print Register A.
 ;
@@ -422,12 +482,22 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 68F: 00 84 ED E5 0D           CA    $4ED
                               JU    $50D
 ;
+; $452 - Instructions in the high-level language for initializing the
+; interpreter and jumping into the user's code to get the ball rolling:
+;
+;       000     Skipped by "BLS 10" at $40E below
+;       189     Select keyboard and printer devices for I/O
+;       240     Move the tab position to column 1
+;       380     Jump unconditional to program register $000
+;
+452: 00 18 99 03 80           DW    $0018990380
+;
 ; $690 - Command handler for IIII - Run Application.
 ;
 690: 00 E4 C1 00 00           JU    $4C1
-4C1: 80 0F 84 52 22           BI   
-                              CA    $452
-                              XC    2
+4C1: 80 0F 84 52 22           BI            ; Swap in BI as the active regs.
+                              CA    $452    ; Load the initialization word
+                              XC    2       ; into BI-2 to get things rolling.
 ;
 ; $480 - Interpreter main execution loop.
 ;
@@ -519,7 +589,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 409: 00 40 00 00 00           DW    $0040000000
 42C: E3 C0 00 00 00           DW    $E3C0000000
 444: 0F FF FF FF FF           DW    $0FFFFFFFFF
-452: 00 18 99 03 80           DW    $0018990380
 474: 03 C0 00 00 00           DW    $03C0000000
 47E: 00 03 F0 00 00           DW    $0003F00000
 47C: E3 D0 00 00 00           DW    $E3D0000000
@@ -533,7 +602,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 6EA: F4 09 B4 ED 0A           CL   
                               ST    $4ED        ; Set the mode in $4ED to 0.
 6F4: 00 E5 BC 00 00           JU    $5BC
-671: 7E 49 20 00 00           DW    $7E49200000
+671: 7E 49 20 00 00           DW    $7E49200000 ; Edit word for hexadecimal.
 ;
 ; $576 - Subroutine that waits for the first register number in a range
 ; to be entered and returns it in $4F4.
@@ -543,7 +612,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 515: 00 B4 F4 E4 F1           ST    $4F4        ; Store the number in $4F4.
                               JU    $4F1        ; Return to the caller.
 ;
-; $50F - Subroutine that waits for a number to be entered.
+; $50F - Subroutine that waits for a register number to be entered.
 ;
 ; The number is returned in A.
 ;
@@ -552,31 +621,120 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 5F1: 7E 11 F5 78 12           TZ                ; 0 means hexadecimal mode.
                               JC    $578        ; 1 means program registers.
                               TH                ; -1 means storage registers.
-57E: 8A 85 82 D7 86           CA    $582
+57E: 8A 85 82 D7 86           CA    $582        ; Compute the register limit.
                               AC    $786
-58A: 88 B0 03 C5 83           ST    3           ; Set S3 to the numeric limit.
-                              JM    $583        ; ???
+58A: 88 B0 03 C5 83           ST    3           ; Set S3 to the register limit.
+                              JM    $583        ; Read decimal or octal number.
 588: 00 F5 8E E7 0C           JC    $58E
                               JU    $70C        ; Print "ERR" and stop.
 578: 8F 86 7C B0 03           CA    $67C        ; Hexadecimal address mode,
                               ST    3           ; change the limit to $FFF.
-58F: 00 C5 85 E5 88           JM    $585        ; ???
+58F: 00 C5 85 E5 88           JM    $585        ; Read hexadecimal number.
                               JU    $588
 58E: 1A 3B F7 0C 0A           TG    3           ; Number over the limit?
                               JC    $70C        ; Print "ERR" and stop.
 51A: 00 E4 FE 00 00           JU    $4FE        ; Return to the caller.
-582: 9E 82 9D DA 1C           DW    $9E829DDA1C
+582: 9E 82 9D DA 1C           DW    $9E829DDA1C ; CORRUPT!  FIXME!
 67C: 00 00 00 0F FF           DW    $0000000FFF
 786: 00 00 00 00 40           DW    $0000000040
 ;
+; $583 - Read decimal or octal number.
 ;
+583: 14 21 87 8C 22           XC    1           ; Put return address in S1.
+                              CA    $78C
+                              XC    2           ; Set S2 to 1.
+514: 40 C5 17 60 00           JM    $517        ; Read and parse a digit.
+                              DLS   1
+540: 55 90 05 25 22           AD    5
+                              XC    5
+                              XC    2
+555: 6D 18 27 F5 6A           LA    0
+                              XC    7
+                              JC    $56A
+56D: 00 E7 0C 00 00           JU    $70C
+56A: 00 08 E5 71 00           AK   
+                              JU    $571
 ;
-517: 71 26 09 B0 05 ".O9&5"   XC    6
-                              CL   
+; $585 - Read hexadecimal number.
+;
+585: 94 21 09 20 0A "UJ9-@"   XC    1           ; Put return address in S1.
+                              CL                ; Set S0 to zero.
+                              XC    0
+594: 40 C5 17 40 03 "..X.3"   JM    $517        ; Read and parse a digit.
+                              BLS   4           ; Shift up by 4 bits.
+                              JU    $540        ; Add it to the working value.
+;
+; $517 - Read a digit from the currently selected input device into S5.
+;
+517: 71 26 09 B0 05           XC    6           ; Put return address in S6.
+                              CL                ; Clear S5 and S7 to zero.
                               ST    5
-571: 00 27 84 FF 0D " P4.."   XC    7
-                              CA    $4FF
-                              JA
+571: 00 27 84 FF 0D           XC    7
+                              CA    $4FF        ; Call the char input routine.
+                              JA                ; Control returns to $50E.
+50E: 39 B0 02 40 1F           ST    2           ; Store the character to S2.
+                              BLS   32          ; Shift up by 32 bits.
+539: 46 70 00 80 02           OAO               ; Echo the character.
+                              CA    2           ; Reload original char from S2.
+546: 00 F5 4A E5 0E           JC    $54A
+                              JU    $50E        ; Loop if output device busy.
+54A: 56 95 4E 95 52           AD    $54E        ; Check if char code >= $41.
+                              AD    $552
+556: 00 F5 5A E7 0C           JC    $55A
+                              JU    $70C        ; Print "ERR" and stop if it is.
+;
+; The following code does a lookup on $600+char to fetch the parsing rule
+; for the character that was just typed.
+;
+55A: 7D 40 17 95 79           BLS   24
+                              AD    $579
+57D: 00 0D 00 00 00           JA                ; Table lookup for character.
+78D: 1E 87 11 1A 0A           CA    $711        ; AND the rule with $3FF.
+                              LA    2
+71E: 2D B0 02 48 03           ST    2
+                              BRS   4           ; Is bit 3 in the rule set?
+72D: 40 25 F0 06 25           XC    5           ; Put the digit into S5.
+                              JC    6           ; Success if bit 3 is set.
+                              XC    5           ; Revert S5.
+740: 53 80 02 48 01           CA    2           ; Get the rule again.
+                              BRS   2           ; Is bit 1 set?
+753: DE F7 57 48 00           JC    $757        ; If yes, jump to $757.
+                              BRS   1           ; Is bit 2 set?
+7DE: 00 F7 62 E7 0C           JC    $762        ; If yes, jump to $762.
+                              JU    $70C        ; Print "ERR" and stop.
+757: 69 27 40 00 10           XC    7
+                              BLS   1
+                              SK   
+769: 00 48 80 E5 71           BRSK  1
+                              JU    $571
+762: 6E 48 01 F7 6B           BRS   2
+                              JC    $76B
+76E: 03 48 03 27 0A           BRS   4
+                              XC    7
+                              JU    $703
+76B: F8 27 12 F7 0C           XC    7
+                              TH   
+                              JC    $70C        ; Print "ERR" and stop.
+703: 8F F5 71 40 00           JC    $571
+                              BLS   1
+78F: 9E 27 F7 1A 0A           XC    7
+                              JC    $71A
+79E: 08 25 B4 FD 25           XC    5
+                              ST    $4FD
+                              XC    5
+708: 76 22 B4 EF 13           XC    2
+                              ST    $4EF
+                              RK   
+776: 00 80 07 E0 01           CA    7
+                              JU    $001
+71A: 9E 25 0B 25 0A           XC    5
+                              CM   
+                              XC    5
+                              JU    $79E
+;
+54E: FF FF FF FF BF           DW    $FFFFFFFFBF
+552: 00 00 00 00 41           DW    $0000000041
+579: 86 00 22 E7 8D           DW    $860022E78D
 ;
 ; $528 - Print the character in the high byte of $4E8 and then move the
 ; print head to column 4.
@@ -604,16 +762,16 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $535 - Subroutine that moves the print head to column 19.
 ;
-535: 35 78 46 F7 A0 "E...-"   OI    $46     ; Output $46 ="move to column 19".
+535: 35 78 46 F7 A0           OI    $46     ; Output $46 ="move to column 19".
                               JC    $7A0
                               JU    $535
-7A0: 00 40 07 13 0D " .7T."   BLS   8
+7A0: 00 40 07 13 0D           BLS   8
                               RK   
                               JA            ; Return from the subroutine.
 ;
 ; $537 - Subroutine that moves the print head to column 49.
 ;
-537: 37 78 4F F7 A0 "G...-"   OI    $4F     ; Output $4F = "move to column 49".
+537: 37 78 4F F7 A0           OI    $4F     ; Output $4F = "move to column 49".
                               JC    $7A0
                               JU    $537
 ;
@@ -629,7 +787,9 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ; The entry points at $3D0, $3D1, $3D2, etc are the opcoe handlers
 ; for the interpreter.  Opcode N is handled by address $3D0+N.
 ;
-; $3D0 - Opcode 0 - Print "EMPTY ERR" and return to the main loop.
+; $3D0 - Opcode 000 - Print "EMPTY ERR" and return to the main loop.
+;
+; Control gets to opcode 000 if the program jumps to an unused address.
 ;
 3D0: F8 84 54 B0 00           CA    $454        ; "EMPTY" message.
                               ST    0
@@ -638,43 +798,43 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 3F9: 00 E7 0C 00 00           JU    $70C        ; Print "ERR" and exit.
 454: 35 24 27 13 18 "EMPTY"   DW    $3524271318
 ;
-; $3D1 - Opcode 1 - XCB - Exchange A and B.
+; $3D1 - Opcode 001 - XCB - Exchange A and B.
 ;
-3D1: 00 21 25 E3 FF           XC    1
+3D1: 00 21 25 E3 FF           XC    1           ; Swap A (BI-1) and B (BI-5).
                               XC    5
-3FF: 00 B0 01 E4 80           ST    1
+3FF: 00 B0 01 E4 80           ST    1           ; Store back to A.
                               JU    $480
 ;
-; $3D2 - Opcode 2 - ADD - Add B to A.
+; $3D2 - Opcode 002 - ADD - Add B to A.
 ;
-3D2: FF 80 05 90 01           CA    5
-                              AD    1
-                              JU    $3FF
+3D2: FF 80 05 90 01           CA    5           ; Load the value of B.
+                              AD    1           ; Add it to A
+                              JU    $3FF        ; and then store back to A.
 ;
-; $3D3 - Opcode 3 - ???
+; $3D3 - Opcode 003 - JR - Jump Return.
 ;
-3D3: 00 84 FC E2 85           CA    $4FC
-285: 86 26 84 FB 22           XC    6
-                              CA    $4FB
-                              XC    2
-286: 00 E4 80 00 00           JU    $480
+3D3: 00 84 FC E2 85           CA    $4FC        ; Get the return address.
+285: 86 26 84 FB 22           XC    6           ; Put it into BI-5.
+                              CA    $4FB        ; Get the return instruction.
+                              XC    2           ; Put it into BI-2.
+286: 00 E4 80 00 00           JU    $480        ; Back to interpreter main loop.
 ;
-; $3D4 - Opcode 4 - JPS - Jump if positive.
+; $3D4 - Opcode 004 - JPS - Jump if positive.
 ;
-3D4: 00 80 01 E4 5D           CA    1
-45D: 6F 12 F4 80 0A           TH
-                              JC    $480
-46F: 80 22 40 09 22           XC    2
-                              BLS   10
-                              XC    2
-                              JU    $480
+3D4: 00 80 01 E4 5D           CA    1           ; Get the A register's value.
+45D: 6F 12 F4 80 0A           TH                ; Is it positive or negative?
+                              JC    $480        ; Jump to $480 if negative.
+46F: 80 22 40 09 22           XC    2           ; Shift the instruction word
+                              BLS   10          ; in BI-2 by 10 bits to skip
+                              XC    2           ; the next instruction.
+                              JU    $480        ; Back to interpreter main loop.
 ;
 ; $3D5 - Opcode 5 - XCV - Exchange A and V00.
 ;
-3D5: 00 83 80 E4 87           CA    $380
-487: 80 21 B3 80 0A           XC    1
-                              ST    $380
-                              JU    $480
+3D5: 00 83 80 E4 87           CA    $380        ; Get the value of V00.
+487: 80 21 B3 80 0A           XC    1           ; Swap it with the A register.
+                              ST    $380        ; Store previous A back to V00.
+                              JU    $480        ; Back to interpreter main loop.
 ;
 ; $3D6 - Opcode 6 - SCO - Single character output with odd parity.
 ;
@@ -684,45 +844,45 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $480
                               JU    $46A
 ;
-; $3D7 - Opcode 7 - ???
+; $3D7 - Opcode 7 - AJ - Automatic Jump.
 ;
-3D7: 00 26 94 61 0D           XC    6
+3D7: 00 26 94 61 0D           XC    6           ; Increment the address in BI-6.
                               AD    $461
-                              JA
+                              JA                ; Fetch new instruction word.
 461: 00 00 01 00 00           DW    $0000010000
 ;
-; $3D8 - Opcode 8 - CLR - Clear A.
+; $3D8 - Opcode 008 - CLR - Clear A.
 ;
 3D8: 00 09 E3 FF 00           CL   
                               JU    $3FF
 ;
-; $3D9 - Opcode 9 - NGA - Complement A.
+; $3D9 - Opcode 009 - NGA - Complement A.
 ;
 3D9: 00 21 0B E3 FF           XC    1
                               CM
                               JU    $3FF
 ;
-; $3DA - Opcode 10 - NGB - Complement B.
+; $3DA - Opcode 00A - NGB - Complement B.
 ;
 3DA: 00 25 0B E4 6B           XC    5
                               CM   
 46B: 00 25 E4 80 00           XC    5
                               JU    $480
 ;
-; $3DB - Opcode 11 - ???
+; $3DB - Opcode 00B - INA - Input from ASCII-coded tape.
 ;
     ; TODO
 ;
-; $3DC - Opcode 12 - ???
+; $3DC - Opcode 00C - ???
 ;
     ; TODO
 ;
-; $3DD - Opcode 13 - ???
+; $3DD - Opcode 00D - ???
 ;
 3DD: 00 83 83 E2 27           CA    $383
                               JU    $227
 ;
-; $3DE - Opcode 14 - SCI - Single character input.
+; $3DE - Opcode 00E - SCI - Single character input.
 ;
 3DE: DE 5C 00 F4 66           CIOP 
                               JC    $466
@@ -738,11 +898,11 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 777: 00 02 E3 DE 00           HH    2
                               JU    $3DE
 ;
-; $3DF - Opcode 15 - OPUS - Return to OPUS.
+; $3DF - Opcode 00F - OPUS - Return to OPUS.
 ;
 3DF: 00 E7 FF 00 00           JU    $7FF
 ;
-; $3E0 - Opcode 16 - ???
+; $3E0 - Opcode 010 - SKIP - Skip field from tape.
 ;
 3E0: FA 82 23 B0 00           CA    $223
                               ST    0
@@ -757,39 +917,39 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 40F: 00 04 E3 FA 00           HH    4
                               JU    $3FA
 ;
-; $3E1 - Opcode 17 - ???
+; $3E1 - Opcode 011 - CALC - Calculate.
 ;
 3E1: 00 C6 65 E2 22           JM    $665
                               JU    $222
 ;
-; $3E2 - Opcode 18 - ???
+; $3E2 - Opcode 012 - DCLR - Clear Distribution Registers.
 ;
 3E2: 00 C6 65 E2 35           JM    $665
                               JU    $235
 ;
-; $3E3 - Opcode 19 - ???
+; $3E3 - Opcode 013 - DIST - Distribute.
 ;
 3E3: 00 C6 65 E2 07           JM    $665
                               JU    $207
 ;
-; $3E4 - Opcode 20 - ???
+; $3E4 - Opcode 014 - DGET - Bring the Distribution Register V07 into A.
 ;
 3E4: FC 21 25 C6 70           XC    1
                               XC    5
                               JM    $670
 3FC: 00 E4 80 00 00           JU    $480
 ;
-; $3E5 - Opcode 21 - ???
+; $3E5 - Opcode 015 - DPUT - Store A to the Distribution Register V07.
 ;
 3E5: 00 83 87 E2 03           CA    $387
                               JU    $203
 ;
-; $3E6 - Opcode 22 - ???
+; $3E6 - Opcode 016 - SCAN - Scan for Non-zero Distribution Register.
 ;
 3E6: 00 87 78 E2 27           CA    $778
                               JU    $227
 ;
-; $3E7 - Opcode 23 - ???
+; $3E7 - Opcode 017 - ALFI - Alphanumeric Input.
 ;
 3E7: 00 82 23 E5 E0           CA    $223
 5E0: CC 25 86 C5 21           XC    5
@@ -816,25 +976,54 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 5CB: 00 40 07 E5 C4           BLS   8
                               JU    $5C4
 ;
-; $3E8 - Opcode 24 - ???
+; $3E8 - Opcode 018 - ALFO - Alphanumeric Output.
 ;
-3E8: 00 84 6C E6 E0           CA    $46C
-6E0: 77 25 80 01 24           XC    5
-                              CA    1
+; Outputs the 5 characters in the A register to the selected output device.
+;
+; The manual says that the B register is unchanged, but this code will
+; actually set B to $1C00000000 if all 5 characters are printed.  Or set it
+; to zero if the print ended early due to a [I] terminator.
+;
+3E8: 00 84 6C E6 E0           CA    $46C        ; Set BI-5 to $1C00000000.
+6E0: 77 25 80 01 24           XC    5           ; See $7B7 subroutine below.
+                              CA    1           ; Load A register into BI-4.
                               XC    4
-677: C4 C7 B7 C7 B7           JM    $7B7
-                              JM    $7B7
+677: C4 C7 B7 C7 B7           JM    $7B7        ; Print the 5 characters
+                              JM    $7B7        ; that were present in A.
 6C4: CD C7 B7 C7 B7           JM    $7B7
                               JM    $7B7
 6CD: 00 C7 B7 E4 80           JM    $7B7
                               JU    $480
+46C: 1C 00 00 00 00           DW    $1C00000000
 ;
-; $3E9 - Opcode 25 - ???
+; $7B7 - Subroutine that prints an alphanumeric character.
+;
+; On entry, the high byte BI-4 contains the character to print.  On exit,
+; it will be shifted up by 8 bits to prepare the next character.
+;
+; On entry, BI-5 is assumed to be set to $1C00000000, which is the
+; character code for the [I] function key.  [I] is used as a terminator
+; to stop character output before all 5 characters in Bi-4 are written.
+;
+7B7: 54 27 24 35 0A           XC    7           ; Put return address in BI-7.
+                              XC    4           ; Get the character to print.
+                              TE    5           ; Is BI-4 set to [I]?
+754: 00 F5 58 E7 5B           JC    $558        ; Bail out if yes.
+75B: 5B 70 00 F7 63           OAO               ; Print the char and rotate.
+                              JC    $763
+                              JU    $75B
+763: 00 24 E0 07 00           XC    4           ; Put rotated A back into BI-4.
+                              JU    7           ; Return from the subroutine.
+558: 00 09 25 E4 80           CL                ; Set B to zero to indicate
+                              XC    5           ; that the print ended early.
+                              JU    $480
+;
+; $3E9 - Opcode 019 - SGET - Load Split Distribution Register.
 ;
 3E9: 00 C6 70 E2 F4           JM    $670
                               JU    $2F4
 ;
-; $3EA - Opcode 26 - ???
+; $3EA - Opcode 01A - SPUT - Store Split Distribution Register.
 ;
 3EA: 00 80 01 E4 75           CA    1
 475: 89 12 80 05 08           TH   
@@ -845,7 +1034,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 42D: 00 B0 01 E3 E5           ST    1
                               JU    $3E5
 ;
-; $3EB - Opcode 27 - ???
+; $3EB - Opcode 01B - CDV - Check-Digit Verification.
 ;
 3EB: 00 86 CA E5 CE           CA    $6CA
 5CE: E9 20 09 B0 05           XC    0
@@ -884,7 +1073,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 5DD: 00 B0 05 E4 80           ST    5
                               JU    $480
 ;
-; $3EC - Opcode 28 - ??? - Input with even parity.
+; $3EC - Opcode 01C - DUPE - Duplicate data with even parity.
 ;
 3EC: 00 86 F0 E2 74           CA    $6F0
 274: D0 92 F9 B0 04           AD    $2F9
@@ -895,12 +1084,12 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 6F0: 00 40 00 00 00           DW    $0040000000
 2F9: 58 00 D2 88 14           DW    $5800D28814
 ;
-; $3ED - Opcode 29 - ??? - Input with odd parity.
+; $3ED - Opcode 01D - DUPO - Duplicate data with odd parity.
 ;
 3ED: 00 09 E2 74 00           CL   
                               JU    $274
 ;
-; $3EE - Opcode 30 - SPEC - Single character output with no parity.
+; $3EE - Opcode 01E - SPEC - Single character output with no parity.
 ;
 3EE: 00 80 01 E3 FD           CA    1
 3FD: 00 40 1F E4 A4           BLS   32
@@ -908,7 +1097,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $480
                               JU    $4A4
 ;
-; $3EF - Opcode 31 - ???
+; $3EF - Opcode 01F - ???
 ;
 3EF: 00 C6 65 E4 34           JM    $665
 434: 49 84 3F B0 05           CA    $43F
@@ -938,7 +1127,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               XC    1
                               JU    $47D
 ;
-; $3F0 - Opcode 32 - ???
+; $3F0 - Opcode 020 - ???
 ;
 3F0: 00 83 BE E4 C4           CA    $3BE
 4C4: 00 40 13 E4 DF           BLS   20
@@ -946,1655 +1135,204 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               XC    2
                               JU    $480
 ;
+; $700 - Print the number in S0 using the edit word formatting rules in S1.
 ;
+; The edit word in S1 defines how the number is to be formatted for output.
 ;
-53B: AF B4 F2 86 76 ".D.6."   ST    $4F2
-                              CA    $676
-5AF: B1 24 84 ED 0B "AM4.#"   XC    4
-                              CA    $4ED
-                              CM   
-5B1: 00 08 E4 F2 00 " 8.. "   AK   
-                              JU    $4F2
+; If the MSB (bit 39) is set, then the number should have a leading sign.
+; The remainder of the edit word is a set of 3-bit edit rules for each
+; of the digits or special characters to print.
 ;
+;   000 - Print a space.
+;   001 - ???
+;   010 - Print a decimal point and then print a decimal digit.
+;   011 - Print a space and then print an octal digit.
+;   100 - Decimal digit.
+;   101 - ???
+;   110 - Octal digit.
+;   111 - Hexadecimal digit.
 ;
-;
-583: 14 21 87 8C 22 "UJ7.K"   XC    1
-                              CA    $78C
-                              XC    2
-514: 40 C5 17 60 00 "..X. "   JM    $517
-                              DLS   1
-540: 55 90 05 25 22 ".05NK"   AD    5
-                              XC    5
-                              XC    2
-555: 6D 18 27 F5 6A ".YP.."   LA    0
-                              XC    7
-                              JC    $56A
-56D: 00 E7 0C 00 00 " ..  "   JU    $70C
-56A: 00 08 E5 71 00 " 8.. "   AK   
-                              JU    $571
-;
-;
-;
-584: 93 21 85 8C 20 "TJ5.-"   XC    1
-                              CA    $58C
-                              XC    0
-593: 40 C5 17 40 02 "..X.2"   JM    $517
-                              BLS   3
-                              JU    $540
-;
-;
-;
-585: 94 21 09 20 0A "UJ9-@"   XC    1
-                              CL   
-                              XC    0
-594: 40 C5 17 40 03 "..X.3"   JM    $517
-                              BLS   4
-                              JU    $540
-;
-;
-;
-589: AB 20 84 F4 0A "$-4.@"   XC    0
-                              CA    $4F4
-5AB: BE 40 07 95 3A "..7V."   BLS   8
-                              AD    $53A
-5BE: AD B0 01 84 FD ".&14."   ST    1
-                              CA    $4FD
-5AD: 00 E0 01 00 00 " .1  "   JU    $001
-;
-;
-;
-;
-;
-;
-699: F1 B4 F1 84 ED ".D.4."   ST    $4F1
-                              CA    $4ED
-6F1: 7E 11 F6 79 12 "./..S"   TZ   
-                              JC    $679
-                              TH   
-67E: 7B 84 F4 F6 F9 ".4..."   CA    $4F4
-                              JC    $6F9
-67B: 9C 96 9B 97 09 ".W,X9"   AD    $69B
-                              AD    $709
-69C: 00 F6 A2 E7 0C " .K.."   JC    $6A2
-                              JU    $70C
-679: A6 84 F4 40 1B "O4..,"   CA    $4F4
-                              BLS   28
-6A6: B8 B0 00 96 B4 "H& WD"   ST    0
-                              AD    $6B4
-6B8: C3 F7 0C 85 BF "...5."   JC    $70C
-                              CA    $5BF
-6C3: 00 E6 CC 00 00 " ..  "   JU    $6CC
-6CC: A5 B0 01 C7 00 "N&1. "   ST    1
-                              JM    $700
-6CF: DE 87 D4 B0 02 ".7.&2"   CA    $7D4
-                              ST    2
-6DE: 6F 86 62 B0 03 ".6.&3"   CA    $662
-                              ST    3
-66F: D0 87 73 B0 00 ".7.& "   CA    $773
-                              ST    0
-6D0: 00 95 D7 E0 03 " V..3"   AD    $5D7
-                              JU    $003
-6A5: A5 78 0B F4 F1 "N.#.."   OI    $0B
-                              JC    $4F1
-                              JU    $6A5
-6A2: BC 60 08 B0 00 "..8& "   DLS   9
-                              ST    0
-6BC: 00 86 C8 E6 CC " 6..."   CA    $6C8
-                              JU    $6CC
-6F9: A4 96 FE 97 86 "MW.X6"   AD    $6FE
-                              AD    $786
-6A4: 00 E6 9C 00 00 " ..  "   JU    $69C
-;
-;
-;
-6A1: A9 B4 F1 84 FD "RD.4."   ST    $4F1
-                              CA    $4FD
-6A9: 6B 20 84 E6 0A ".-4.@"   XC    0
-                              CA    $4E6
-66B: FB B0 01 48 01 ".&1.1"   ST    1
-                              BRS   2
-6FB: 00 F7 A8 E7 A9 " .Q.R"   JC    $7A8
-7A9: 00 C7 00 E4 F1 " . .."   JM    $700
-                              JU    $4F1
-7A8: BC 20 40 00 20 ".-. -"   XC    0
-                              BLS   1
-                              XC    0
-7BC: CE 48 80 48 06 ".. .6"   BRSK  1
-                              BRS   7
-7CE: CE 70 00 F7 A9 ".. .R"   OAO  
-                              JC    $7A9
-                              JU    $7CE
-;
-;
-;
-6BF: 6A B4 EC 84 E6 ".D.4."   ST    $4EC
-                              CA    $4E6
-66A: F5 12 F6 F2 0A ".S..@"   TH   
-                              JC    $6F2
-6F5: A7 48 01 F7 A3 "P.1.L"   BRS   2
-                              JC    $7A3
-6A7: 00 C5 85 E7 A7 " .5.P"   JM    $585
-7A7: 33 F7 0C 11 0A "C../@"   JC    $70C
-                              TZ   
-733: B4 F7 B4 C5 89 "D.D.9"   JC    $7B4
-                              JM    $589
-                              JU    $7B4
-6F2: 00 C5 83 E7 A7 " .3.P"   JM    $583
-                              JU    $7A7
-7A3: 00 C5 84 E7 A7 " .4.P"   JM    $584
-                              JU    $7A7
-7B4: 28 84 EF 48 07 "Q4..7"   CA    $4EF
-                              BRS   8
-728: B6 F5 BC 48 00 "F... "   JC    $5BC
-                              BRS   1
-7B6: 00 F7 0C E6 BD " ...."   JC    $70C
-6BD: 7A C7 8A 84 F4 "..@4."   JM    $78A
-                              CA    $4F4
-67A: FA 10 08 B4 F4 ".08D."   SK   
-                              AK   
-                              ST    $4F4
-6FA: A8 C5 28 C6 99 "Q.Q.Z"   JM    $528
-                              JM    $699
-6A8: 00 E4 EC 00 00 " ..  "   JU    $4EC
-;
-;
-;
-6ED: DC 0A 23 09 21 ".@L9J"   XC    3
-                              CL   
+700: 1B 21 40 00 21           XC    1           ; Shift the edit word in S1
+                              BLS   1           ; up by 1 bit.
                               XC    1
-6DC: EC 62 00 09 21 ".. 9J"   DLD   1
-                              CL   
-                              XC    1
-6EC: E1 62 00 40 00 ".. . "   DLD   1
-                              BLS   1
-6E1: E2 3C 08 90 05 "..805"   TG    4
-                              AK   
-                              AD    5
-6E2: 63 90 01 B0 05 ".01&5"   AD    1
-                              ST    5
-663: 00 E0 03 00 00 " .3  "   JU    $003
-;
-;
-;
-700: 0A 00 04 00 01 "@ 4 1"   HH    0
-                              HH    4
-                              HH    0
-                              HH    1
-;
-;
-;
-72E: 45 20 86 BB 22 ".-6.K"   XC    0
-                              CA    $6BB
-                              XC    2
-745: A2 84 F4 40 07 "K4..7"   CA    $4F4
-                              BLS   8
-7A2: B5 97 A6 B0 01 "EXO&1"   AD    $7A6
-                              ST    1
-7B5: 00 E0 01 00 00 " .1  "   JU    $001
-;
-;
-;
-77D: 19 B4 FE C7 95 "ZD..V"   ST    $4FE
-                              JM    $795
-719: 24 F6 9F 95 A0 "M..V-"   JC    $69F
-                              AD    $5A0
-724: 36 23 C7 2E 33 "FL..C"   XC    3
-                              JM    $72E
-                              TE    3
-736: 00 E4 FE 00 00 " ..  "   JU    $4FE
-69F: 9F 78 9B F5 80 "..,. "   OI    $9B
-                              JC    $580
-                              JU    $69F
-580: F6 09 08 B4 ED ".98D."   CL   
-                              AK   
-                              ST    $4ED
-5F6: 00 E7 7B 00 00 " ..  "   JU    $77B
-;
-;
-;
-795: F4 20 84 E9 21 ".-4.J"   XC    0
-                              CA    $4E9
-                              XC    1
-7F4: 23 84 F4 39 0A "L4.I@"   CA    $4F4
-                              TG    1
-723: B0 F0 00 10 08 "&. 08"   JC    0
-                              SK   
-                              AK   
-7B0: 00 B4 F4 E0 00 " D.. "   ST    $4F4
-                              JU    $000
-;
-;
-;
-7B7: 54 27 24 35 0A ".PME@"   XC    7
-                              XC    4
-                              TE    5
-754: 00 F5 58 E7 5B " ...."   JC    $558
-75B: 5B 70 00 F7 63 ".. .."   OAO  
-                              JC    $763
-                              JU    $75B
-763: 00 24 E0 07 00 " M.7 "   XC    4
-                              JU    $007
-558: 00 09 25 E4 80 " 9N. "   CL   
-                              XC    5
-                              JU    $480
-500: 0A E5 D6 0A 0A "@..@@"   JU    $5D6
-5D6: 68 09 21 40 00 ".9J. "   CL   
-                              XC    1
-                              BLS   1
-568: F4 F5 EC 40 00 ".... "   JC    $5EC
-                              BLS   1
-5F4: 81 F5 F8 40 00 "1... "   JC    $5F8
-                              BLS   1
-581: 00 9F D6 9E 09 " ...9"   AD    $FD6
-                              AD    $E09
-                              JU    $500
-5EC: FA 40 00 F6 74 ".. .."   BLS   1
-                              JC    $674
-5FA: 92 40 00 F7 82 "S. .2"   BLS   1
-                              JC    $782
-592: A7 23 12 23 0A "PLSL@"   XC    3
-                              TH   
-                              XC    3
-5A7: 00 F5 2B E5 AE " .$.."   JC    $52B
-5AE: AE 78 9B F6 94 "..,.U"   OI    $9B
-                              JC    $694
-                              JU    $5AE
-694: 00 62 00 E5 3D " . .."   DLD   1
-53D: CF 21 11 D0 03 ".J/.3"   XC    1
-                              TZ   
-                              AC    3
-5CF: 00 95 53 0D 00 " V.. "   AD    $553
-                              JA
-52B: B9 48 02 95 B5 "I.2VE"   BRS   3
-                              AD    $5B5
-5B9: 00 E5 3D 00 00 " ..  "   JU    $53D
-5F8: 16 40 00 F7 01 "W. .1"   BLS   1
-                              JC    $701
-516: 16 78 91 F6 FC "W./.."   OI    $91
-                              JC    $6FC
-                              JU    $516
-6FC: 94 23 09 23 0A "UL9L@"   XC    3
-                              CL   
-                              XC    3
-                              JU    $694
-674: FF 40 00 F6 FC ".. .."   BLS   1
-                              JC    $6FC
-6FF: 00 E6 94 00 00 " .U  "   JU    $694
-701: 00 04 20 0E 00 " 4-. "   DW    $0004200E00
-782: 15 62 00 21 0A "V. J@"   DLD   1
-                              XC    1
-715: 00 E5 D6 00 00 " ..  "   JU    $5D6
-501: 02 BF D0 BE 0A "2...@"   ST    $FD0
-                              ST    $E0A
-502: 3E 82 BD D8 3C ".2..."   CA    $2BD
-                              AC    $83C
-                              JU    $53E
-503: 0A 78 10 F7 0A "@.0.@"   DW    $0A7810F70A
-504: 0A 78 01 F7 0B "@.1.#"   OI    $01
-                              JC    $70B
-50A: 0A 78 07 F7 0B "@.7.#"   OI    $07
-                              JC    $70B
-                              JU    $50A
-70B: 1F 23 09 23 0A ".L9L@"   XC    3
-                              CL   
-                              XC    3
-71F: 00 E5 D6 00 00 " ..  "   JU    $5D6
-505: 0A 78 02 F7 0B "@.2.#"   OI    $02
-                              JC    $70B
-                              JU    $50A
-506: 0A 78 83 F7 0B "@.3.#"   OI    $83
-                              JC    $70B
-                              JU    $50A
-507: 0A 78 04 F7 0B "@.4.#"   OI    $04
-                              JC    $70B
-                              JU    $50A
-508: 0A 78 85 F7 0B "@.5.#"   OI    $85
-                              JC    $70B
-                              JU    $50A
-509: 0A 78 86 F7 0B "@.6.#"   OI    $86
-                              JC    $70B
-                              JU    $50A
-50B: 0A 78 08 F7 0B "@.8.#"   OI    $08
-                              JC    $70B
-                              JU    $50A
-50C: 0A 78 89 F7 0B "@.9.#"   OI    $89
-                              JC    $70B
-                              JU    $50A
-50D: 19 7E C0 7E 50 "Z...."   IS    $C0
-                              IS    $50
-519: 86 85 1D B4 FF "65.D."   CA    $51D
-                              ST    $4FF
-586: 72 09 B4 ED 0A ".9D.@"   CL   
-                              ST    $4ED
-572: 00 C5 76 E5 7A " ...."   JM    $576
-57A: 8D C5 85 C5 89 "..5.9"   JM    $585
-                              JM    $589
-58D: 7C 84 EF 48 05 ".4..5"   CA    $4EF
-                              BRS   6
-57C: 87 F5 80 48 00 "7. . "   JC    $580
-                              BRS   1
-587: 12 F5 8B 48 00 "S.#. "   JC    $58B
-                              BRS   1
-512: 00 F5 72 E7 0C " ...."   JC    $572
-                              JU    $70C
-58B: FC 84 F4 08 0A ".4.8@"   CA    $4F4
-                              AK   
-5FC: 00 B4 F4 E5 7A " D..."   ST    $4F4
-                              JU    $57A
-50E: 39 B0 02 40 1F "I&2.."   ST    2
-                              BLS   32
-539: 46 70 00 80 02 "..  2"   OAO  
-                              CA    2
-546: 00 F5 4A E5 0E " ...."   JC    $54A
-                              JU    $50E
-54A: 56 95 4E 95 52 ".V.V."   AD    $54E
-                              AD    $552
-556: 00 F5 5A E7 0C " ...."   JC    $55A
-                              JU    $70C
-55A: 7D 40 17 95 79 "..XV."   BLS   24
-                              AD    $579
-57D: 00 0D 00 00 00 " .   "   JA
-510: 9B F5 CD 96 97 ",..WX"   JC    $5CD
-                              AD    $697
-59B: 74 11 F5 CD 0A "./..@"   TZ   
-                              JC    $5CD
-574: 00 80 04 0D 00 "  4. "   CA    4
-                              JA
-5CD: 63 09 21 80 07 ".9J 7"   CL   
-                              XC    1
-                              CA    7
-563: 74 B0 03 20 0A ".&3-@"   ST    3
-                              XC    0
-                              JU    $574
-513: 00 85 97 E5 1B " 5X.,"   CA    $597
-51B: 32 B0 03 24 09 "B&3M9"   ST    3
-                              XC    4
-                              CL   
-532: 00 21 80 04 0D " J 4."   XC    1
-                              CA    4
-                              JA
-518: A4 7E C0 7E 42 "M...."   IS    $C0
-                              IS    $42
-5A4: B0 78 80 08 0A "&. 8@"   OI    $80
-                              AK   
-5B0: 00 F5 34 E5 A4 " .D.M"   JC    $534
-                              JU    $5A4
-51D: 0A 5C 00 F5 4A "@. .."   DW    $0A5C00F54A
-51F: 2C 12 F5 26 11 ".S.O/"   TH   
-                              JC    $526
-                              TZ   
-52C: B7 F5 30 95 33 "G.&VC"   JC    $530
-                              AD    $533
-5B7: 42 F5 BB 95 3E "...V."   JC    $5BB
-                              AD    $53E
-542: 4D F5 C6 95 49 "...V."   JC    $5C6
-                              AD    $549
-54D: 5B 21 60 00 20 ".J. -"   XC    1
-                              DLS   1
-                              XC    0
-55B: 6C 95 5F 20 0A ".V.-@"   AD    $55F
-                              XC    0
-56C: FD F5 70 90 01 "...01"   JC    $570
-                              AD    1
-5FD: 00 21 E5 30 00 " J.& "   XC    1
-                              JU    $530
-526: F3 84 E7 48 03 ".4..3"   CA    $4E7
-                              BRS   4
-5F3: FF F5 F7 13 04 "...T4"   JC    $5F7
-                              RK   
-                              HH    4
-5FF: 00 F5 CD E5 30 " ...&"   JC    $5CD
-                              JU    $530
-530: 00 80 04 0D 00 "  4. "   CA    4
-                              JA
-570: 73 84 E7 48 03 ".4..3"   CA    $4E7
-                              BRS   4
-573: FF F5 77 13 05 "...T5"   JC    $577
-                              RK   
-                              HH    5
-                              JU    $5FF
-577: 00 13 01 E5 CD " T1.."   RK   
-                              HH    1
-                              JU    $5CD
-5BB: 47 11 F5 4D 0A "./..@"   TZ   
-                              JC    $54D
-547: D2 95 4B F5 4F ".V..."   AD    $54B
-                              JC    $54F
-5D2: 30 96 D6 F5 DA "&W..."   AD    $6D6
-                              JC    $5DA
-                              JU    $530
-54F: DB 11 F7 56 0A "./..@"   TZ   
-                              JC    $756
-5DB: 67 95 DF 11 0A ".V./@"   AD    $5DF
-                              TZ   
-567: F2 F5 DA 95 6E "...V."   JC    $5DA
-                              AD    $56E
-5F2: FE 11 F5 F9 0A "./..@"   TZ   
-                              JC    $5F9
-5FE: 10 97 02 11 0A "0X2/@"   AD    $702
-                              TZ   
-                              JU    $510
-5C6: 51 11 F5 CD 0A "./..@"   TZ   
-                              JC    $5CD
-551: 00 95 D5 E5 DA " V..."   AD    $5D5
-                              JU    $5DA
-5DA: E6 11 F5 E1 0A "./..@"   TZ   
-                              JC    $5E1
-5E6: 00 B3 80 E5 E1 " C .."   ST    $380
-                              JU    $5E1
-5E1: 1C 80 03 11 0A ". 3/@"   CA    3
-                              TZ   
-                              JU    $51C
-5F7: 00 13 01 E5 FF " T1.."   RK   
-                              HH    1
-                              JU    $5FF
-5F9: 91 86 7D B3 80 "/6.C "   CA    $67D
-                              ST    $380
-591: 00 E4 F9 00 00 " ..  "   JU    $4F9
-756: 00 23 80 04 0D " L 4."   XC    3
-                              CA    4
-                              JA
-520: 00 F5 24 E5 27 " .M.P"   JC    $524
-527: 27 78 80 F5 99 "P. .Z"   OI    $80
-                              JC    $599
-                              JU    $527
-599: 2E 24 0B 12 0A ".M#S@"   XC    4
-                              CM   
-                              TH   
-52E: 2E F4 F9 78 1C "....."   JC    $4F9
-                              OI    $1C
-                              JU    $52E
-524: 24 78 20 F5 99 "M.-.Z"   OI    $20
-                              JC    $599
-                              JU    $524
-521: AC 11 F5 A8 0A "./.Q@"   TZ   
-                              JC    $5A8
-5AC: 00 E7 0C 00 00 " ..  "   JU    $70C
-5A8: 98 C5 76 C7 8A "Y...@"   JM    $576
-                              JM    $78A
-598: 00 84 F4 E6 78 " 4..."   CA    $4F4
-678: 00 96 FD E7 81 " W..1"   AD    $6FD
-781: 00 04 00 1E 00 " 4 . "   HH    4
-                              HH    0
-                              LA    6
-                              HH    0
-                              JU    $700
-523: 2F 11 F5 AA 0A "./.%@"   TZ   
-                              JC    $5AA
-52F: FB 87 05 B4 F4 ".75D."   CA    $705
-                              ST    $4F4
-5FB: EE 97 94 B4 E9 ".XUD."   AD    $794
-                              ST    $4E9
-5EE: EA 86 72 B4 E6 ".6.D."   CA    $672
-                              ST    $4E6
-5EA: F5 09 B4 ED 0A ".9D.@"   CL   
-                              ST    $4ED
-5F5: 9C 7E C0 7E 42 "....."   IS    $C0
-                              IS    $42
-59C: 9D 08 0B 94 F4 ".8#U."   AK   
-                              CM   
-                              AD    $4F4
-59D: 00 B4 F4 E6 F8 " D..."   ST    $4F4
-6F8: 95 C7 7D F6 F8 "V...."   JM    $77D
-                              JC    $6F8
-695: 00 C6 99 E6 9D " .Z.."   JM    $699
-69D: 96 C6 A1 C7 7D "W.J.."   JM    $6A1
-                              JM    $77D
-696: 00 F6 9A E6 9E " .*.."   JC    $69A
-69E: 9E 78 91 F6 9D "../.."   OI    $91
-                              JC    $69D
-                              JU    $69E
-5AA: A1 C5 76 C5 0F "J...."   JM    $576
-                              JM    $50F
-5A1: 00 E5 EE 00 00 " ..  "   JU    $5EE
-69A: 98 C7 7D F6 9A "Y...*"   JM    $77D
-                              JC    $69A
-698: 00 C7 8A E6 95 " .@.V"   JM    $78A
-                              JU    $695
-525: AC 11 F7 2C 0A "./..@"   TZ   
-                              JC    $72C
-                              JU    $5AC
-72C: 16 84 EA B4 FD "W4.D."   CA    $4EA
-                              ST    $4FD
-716: F9 84 EB B4 F4 ".4.D."   CA    $4EB
-                              ST    $4F4
-7F9: 26 C6 99 C6 A1 "O.Z.J"   JM    $699
-                              JM    $6A1
-726: 00 E5 BC 00 00 " ..  "   JU    $5BC
-529: A2 B4 FF 09 0A "KD.9@"   ST    $4FF
-                              CL   
-5A2: A3 B4 ED 86 71 "LD.6."   ST    $4ED
-                              CA    $671
-5A3: 6F B4 E6 7E 51 ".D..."   ST    $4E6
-                              IS    $51
-56F: 00 C7 8A E7 96 " .@.W"   JM    $78A
-796: 00 C5 76 E7 FA " ...."   JM    $576
-7FA: B2 C5 85 C7 2E "B.5.."   JM    $585
-                              JM    $72E
-7B2: 44 35 F7 C0 0A ".E..@"   TE    5
-                              JC    $7C0
-744: BA C6 99 C5 35 "..Z.E"   JM    $699
-                              JM    $535
-7BA: 3B C6 A1 C5 37 "..J.G"   JM    $6A1
-                              JM    $537
-73B: 17 25 B4 FD 0A "XND.@"   XC    5
-                              ST    $4FD
-717: C0 C6 A1 C7 8A "..J.@"   JM    $6A1
-                              JM    $78A
-                              JU    $7C0
-7C0: FE 84 EF 48 05 ".4..5"   CA    $4EF
-                              BRS   6
-7FE: 99 F7 97 48 00 "Z.X. "   JC    $797
-                              BRS   1
-799: A4 F7 A1 48 00 "M.J. "   JC    $7A1
-                              BRS   1
-7A4: 00 F7 96 E7 0C " .W.."   JC    $796
-                              JU    $70C
-797: 22 C7 8A C6 99 "K.@.Z"   JM    $78A
-                              JM    $699
-722: 00 E5 80 00 00 " .   "   JU    $580
-7A1: 9A 84 F4 08 0A "*4.8@"   CA    $4F4
-                              AK   
-79A: 00 B4 F4 E7 FA " D..."   ST    $4F4
-                              JU    $7FA
-52A: 3C 80 01 B0 07 ". 1&7"   CA    1
-                              ST    7
-53C: C9 0B 12 F6 C6 ".#S.."   CM   
-                              TH   
-                              JC    $6C6
-5C9: 00 B0 01 E6 C6 " &1.."   ST    1
-                              JU    $6C6
-6C6: D5 86 CA 20 0A ".6.-@"   CA    $6CA
-                              XC    0
-6D5: 92 6A 09 40 03 "S.9.3"   DRD   10
-                              BLS   4
-692: A3 B0 04 F6 A0 "L&4.-"   ST    4
-                              JC    $6A0
-6A3: AF 40 01 F6 AC "..1.."   BLS   2
-                              JC    $6AC
-6AF: C0 40 00 23 0A ".. L@"   BLS   1
-                              XC    3
-6C0: 93 87 78 08 0A "T7.8@"   CA    $778
-                              AK   
-693: 00 23 21 E5 D6 " LJ.."   XC    3
-                              XC    1
-                              JU    $5D6
-6A0: B1 40 02 23 0A "A.2L@"   BLS   3
-                              XC    3
-6B1: 00 86 B5 E6 93 " 6E.T"   CA    $6B5
-                              JU    $693
-6AC: C1 40 00 23 0A ".. L@"   BLS   1
-                              XC    3
-6C1: 00 86 C5 E6 93 " 6..T"   CA    $6C5
-                              JU    $693
-52D: 0A 86 01 E7 5D "@61.."   DW    $0A8601E75D
-531: 44 40 02 48 85 "..2.5"   BLS   3
-                              BRSK  6
-544: 00 E7 AC 00 00 " ..  "   JU    $7AC
-7AC: BF 10 48 85 0A ".0.5@"   SK   
-                              BRSK  6
-7BF: 00 21 E7 9C 00 " J.. "   XC    1
-79C: 30 09 21 11 0A "&9J/@"   CL   
+71B: 9C B4 FE F7 9B           ST    $4FE        ; Store return address to $4FE.
+                              JC    $79B        ; Jump if MSB of edit word is 1.
+79C: 30 09 21 11 0A           CL   
                               XC    1
                               TZ   
-730: BB F4 FE 40 00 ".... "   JC    $4FE
-                              BLS   1
-7BB: 46 F7 3F 40 00 ".... "   JC    $73F
-                              BLS   1
-746: D1 F7 CA 40 00 ".... "   JC    $7CA
-                              BLS   1
-7D1: 5D F7 D5 21 0A "...J@"   JC    $7D5
-                              XC    1
-75D: 5D 70 00 F7 9C ".. .."   OAO  
+730: BB F4 FE 40 00           JC    $4FE        ; Return if edit word is now 0.
+                              BLS   1           ; Decode next 3-bit edit rule.
+7BB: 46 F7 3F 40 00           JC    $73F
+                              BLS   1           ; Edit rule is 0XX.
+746: D1 F7 CA 40 00           JC    $7CA
+                              BLS   1           ; Edit rule is 00X.
+7D1: 5D F7 D5 21 0A           JC    $7D5
+                              XC    1           ; Edit rule is 000 - space.
+75D: 5D 70 00 F7 9C           OAO               ; Print the character in A.
                               JC    $79C
                               JU    $75D
-73F: 4B 40 00 F7 47 ".. .."   BLS   1
+73F: 4B 40 00 F7 47           BLS   1           ; Edit rule is 1XX.
                               JC    $747
-74B: D6 40 00 F5 D3 ".. .."   BLS   1
+74B: D6 40 00 F5 D3           BLS   1           ; Edit rule is 10X.
                               JC    $5D3
-7D6: 00 62 00 E5 5E " . .."   DLD   1
-55E: A9 21 40 10 0A "RJ.0@"   XC    1
+7D6: 00 62 00 E5 5E           DLD   1           ; Edit rule is 100 - dec digit.
+55E: A9 21 40 10 0A           XC    1
                               BLS   17
-5A9: 00 95 2D 0D 00 " V.. "   AD    $52D
-                              JA
-5D3: A6 42 05 21 0A "O.5J@"   BLD   6
+5A9: 00 95 2D 0D 00           AD    $52D        ; Load $601+digit*2 into A
+                              JA                ; and go print the high byte.
+52D: 0A 86 01 E7 5D           DW    $0A8601E75D
+5D3: A6 42 05 21 0A           BLD   6           ; Edit rule is 101.
                               XC    1
-5A6: 00 40 1F E7 5D " ...."   BLS   32
+5A6: 00 40 1F E7 5D           BLS   32
                               JU    $75D
-747: D2 40 00 F7 4F ".. .."   BLS   1
+747: D2 40 00 F7 4F           BLS   1           ; Edit rule is 11X.
                               JC    $74F
-7D2: 00 42 02 E5 5E " .2.."   BLD   3
-                              JU    $55E
-74F: 00 42 03 E5 5E " .3.."   BLD   4
-                              JU    $55E
-7CA: D7 40 00 F7 52 ".. .."   BLS   1
+7D2: 00 42 02 E5 5E           BLD   3           ; Edit rule is 110,
+                              JU    $55E        ; which is an octal digit.
+74F: 00 42 03 E5 5E           BLD   4           ; Edit rule is 111,
+                              JU    $55E        ; which is a hexadecimal digit.
+7CA: D7 40 00 F7 52           BLS   1           ; Edit rule is 01X.
                               JC    $752
-7D7: D7 78 3B F7 D6 "....."   OI    $3B
-                              JC    $7D6
-                              JU    $7D7
-752: 52 78 80 F7 D2 ".. .."   OI    $80
-                              JC    $7D2
-                              JU    $752
-7D5: D5 78 80 F5 5D ".. .."   OI    $80
-                              JC    $55D
+7D7: D7 78 3B F7 D6           OI    $3B         ; Edit rule is 010.
+                              JC    $7D6        ; Print a decimal point
+                              JU    $7D7        ; followed by a decimal digit.
+752: 52 78 80 F7 D2           OI    $80         ; Edit rule is 011.
+                              JC    $7D2        ; Print a space, then print an
+                              JU    $752        ; octal digit.
+7D5: D5 78 80 F5 5D           OI    $80         ; Edit rule is 001.
+                              JC    $55D        ; Output a space.
                               JU    $7D5
-55D: A5 21 48 81 18 "NJ.1Y"   XC    1
+55D: A5 21 48 81 18           XC    1
                               BRSK  2
                               LA    0
-5A5: 31 21 F7 AC 0A "AJ..@"   XC    1
+5A5: 31 21 F7 AC 0A           XC    1
                               JC    $7AC
-                              JU    $531
-533: FF FF FF FF F0 "....."   DW    $FFFFFFFFF0
-536: 36 78 46 F7 98 "F...Y"   OI    $46
-                              JC    $798
-                              JU    $536
-538: 38 78 4C F7 A0 "H...-"   OI    $4C
-                              JC    $7A0
-                              JU    $538
-53A: 00 0F B0 00 0F " .& ."   DW    $000FB0000F
-53E: 00 00 00 00 06 "    6"   DW    $0000000006
-543: 00 07 07 E5 43 " 77.."   HH    7
-                              HH    7
-                              JU    $543
-545: D8 B0 03 68 00 ".&3. "   ST    3
-                              DRS   1
-5D8: E5 B0 05 60 00 ".&5. "   ST    5
-                              DLS   1
-5E5: C5 0B 90 03 25 ".#03N"   CM   
-                              AD    3
-                              XC    5
-5C5: 59 21 12 F3 D9 ".JS.."   XC    1
-                              TH   
-                              JC    $3D9
-559: 00 E4 80 00 00 " .   "   JU    $480
-548: C8 6A 09 C6 ED "..9.."   DRD   10
-                              JM    $6ED
-5C8: CA C6 ED C6 ED "....."   JM    $6ED
-                              JM    $6ED
-5CA: 50 C6 ED C6 ED "....."   JM    $6ED
-                              JM    $6ED
-550: E4 0B 25 68 00 ".#N. "   CM   
-                              XC    5
-                              DRS   1
-5E4: D0 60 00 90 05 ".. 05"   DLS   1
-                              AD    5
-5D0: E8 B0 01 90 04 ".&104"   ST    1
-                              AD    4
-5E8: D9 0B 27 12 27 ".#PSP"   CM   
-                              XC    7
-                              TH   
-                              XC    7
-5D9: DD F5 DD 0B 0A "...#@"   JC    $5DD
-                              CM   
-                              JU    $5DD
-5DD: 00 B0 05 E4 80 " &5. "   ST    5
-                              JU    $480
-549: 00 00 00 00 0A "    @"   DW    $000000000A
-54B: FF FF FF FF F0 "....."   DW    $FFFFFFFFF0
-54C: 00 00 00 00 60 "    ."   DW    $0000000060
-54E: FF FF FF FF BF "....."   DW    $FFFFFFFFBF
-552: 00 00 00 00 41 "    ."   DW    $0000000041
-553: 0A 0A 0A 85 03 "@@@53"   DW    $0A0A0A8503
-554: E7 35 21 F5 64 ".EJ.."   TE    5
-                              XC    1
-                              JC    $564
-5E7: C3 40 07 90 01 "..701"   BLS   8
-                              AD    1
-5C3: D1 B0 01 12 0A ".&1S@"   ST    1
-                              TH   
-5D1: 00 F5 CC E4 80 " ... "   JC    $5CC
-                              JU    $480
-564: C4 40 07 90 01 "..701"   BLS   8
-                              AD    1
-5C4: D4 12 F5 CB 21 ".S..J"   TH   
-                              JC    $5CB
-                              XC    1
-5D4: 00 E5 58 00 00 " ..  "   JU    $558
-5CB: 00 40 07 E5 C4 " .7.."   BLS   8
-                              JU    $5C4
-5CC: CC 5C 00 F5 54 ".. .."   CIOP 
-                              JC    $554
-                              JU    $5CC
-557: C1 87 78 27 09 ".7.P9"   CA    $778
-                              XC    7
-                              CL   
-5C1: 00 E5 6B 00 00 " ..  "   JU    $56B
-56B: 6B 50 00 F6 F3 ".. .."   SI   
-                              JC    $6F3
-                              JU    $56B
-6F3: AB 14 F7 FB 04 "$U..4"   TP   
-                              JC    $7FB
-                              HH    4
-6AB: B6 09 F5 6B 0A "F9..@"   CL   
-                              JC    $56B
-6B6: 00 E7 CF 00 00 " ..  "   JU    $7CF
-7CF: DF 09 B0 01 0A ".9&1@"   CL   
-                              ST    1
-7DF: 00 B0 07 E5 6B " &7.."   ST    7
-                              JU    $56B
-7FB: 2B 24 87 12 1C "$M7S."   XC    4
-                              CA    $712
-                              LA    4
-72B: 41 48 00 D5 B6 ".. .F"   BRS   1
-                              AC    $5B6
-741: 50 B0 00 85 4C ".& 5."   ST    0
-                              CA    $54C
-750: E6 1C 90 00 33 "..0 C"   LA    4
-                              AD    0
-                              TE    3
-7E6: F2 F7 EA 96 6D "...W."   JC    $7EA
-                              AD    $66D
-7F2: 00 F6 F6 E7 AD " ...."   JC    $6F6
-7AD: 00 09 E5 6B 00 " 9.. "   CL   
-                              JU    $56B
-6F6: AE 11 F6 AD 0A "./..@"   TZ   
-                              JC    $6AD
-6AE: BA 96 B2 F6 B7 ".WB.G"   AD    $6B2
-                              JC    $6B7
-6BA: C7 96 BE F6 C2 ".W..."   AD    $6BE
-                              JC    $6C2
-6C7: D3 96 CB 11 0A ".W./@"   AD    $6CB
-                              TZ   
-6D3: 00 F5 57 E7 AD " ...."   JC    $557
-                              JU    $7AD
-6AD: 00 B3 80 E5 6B " C .."   ST    $380
-                              JU    $56B
-6B7: C9 97 C1 F7 CF ".X..."   AD    $7C1
-                              JC    $7CF
-6C9: 00 E7 AD 00 00 " ..  "   JU    $7AD
-6C2: D1 21 60 00 0A ".J. @"   XC    1
-                              DLS   1
-6D1: 67 90 01 21 09 ".01J9"   AD    1
-                              XC    1
-                              CL   
-667: 00 E5 6B 00 00 " ..  "   JU    $56B
-7EA: B1 27 11 F4 80 "AP/. "   XC    7
-                              TZ   
-                              JC    $480
-7B1: 00 21 0B E3 FF " J#.."   XC    1
-                              CM   
-                              JU    $3FF
-55C: 00 07 07 E5 5C " 77.."   HH    7
-                              HH    7
-                              JU    $55C
-55F: 00 40 00 00 00 " .   "   DW    $0040000000
-560: 01 B0 00 00 00 "1&   "   ST    0
-                              HH    0
-                              HH    0
-                              JU    $501
-561: 00 07 07 E5 61 " 77.."   HH    7
-                              HH    7
-                              JU    $561
-562: 00 0B 21 E5 48 " #J.."   CM   
-                              XC    1
-                              JU    $548
-565: 45 12 F6 6C 0A ".S..@"   TH   
-                              JC    $66C
-                              JU    $545
-66C: 00 0B E5 45 00 " #.. "   CM   
-                              JU    $545
-566: 00 07 07 E5 66 " 77.."   HH    7
-                              HH    7
-                              JU    $566
-56E: 00 00 00 00 03 "    3"   DW    $0000000003
-579: 86 00 22 E7 8D "6 K.."   DW    $860022E78D
-57F: 00 07 07 E5 7F " 77.."   HH    7
-                              HH    7
-                              JU    $57F
-58C: 00 00 00 00 07 "    7"   DW    $0000000007
-590: 1C 11 F5 11 0A "././@"   TZ   
-                              JC    $511
-                              JU    $51C
-595: 20 F5 99 12 0A "-.ZS@"   JC    $599
-                              TH   
-                              JU    $520
-597: 0A 5C 00 F5 1F "@. .."   DW    $0A5C00F51F
-5A0: 00 07 07 E0 00 " 77. "   DW    $000707E000
-5B5: C0 00 00 00 00 ".    "   DW    $C000000000
-5B6: 00 00 00 00 10 "    0"   DW    $0000000010
-5BF: 7F C0 00 00 00 "..   "   DW    $7FC0000000
-5C7: DE 21 B0 07 12 ".J&7S"   XC    1
-                              ST    7
-                              TH   
-5DE: 48 F5 62 21 0A "...J@"   JC    $562
-                              XC    1
-                              JU    $548
-5CE: E9 20 09 B0 05 ".-9&5"   XC    0
-                              CL   
-                              ST    5
-5E9: C7 60 81 B0 04 "..1&4"   DLSC  2
-                              ST    4
-                              JU    $5C7
-5D5: 00 00 00 00 03 "    3"   DW    $0000000003
-5DC: 00 07 07 E5 DC " 77.."   HH    7
-                              HH    7
-                              JU    $5DC
-5DF: FF FF FF FF E0 "....."   DW    $FFFFFFFFE0
-5E0: CC 25 86 C5 21 ".N6.J"   XC    5
-                              CA    $6C5
-                              XC    1
-                              JU    $5CC
-5E2: 00 07 07 E5 E2 " 77.."   HH    7
-                              HH    7
-                              JU    $5E2
-5E3: 00 07 07 E5 E3 " 77.."   HH    7
-                              HH    7
-                              JU    $5E3
-5EB: 00 07 07 E5 EB " 77.."   HH    7
-                              HH    7
-                              JU    $5EB
-640: D3 38 E9 00 84 ".H. 4"   DW    $D338E90084
-641: 00 80 00 48 00 "   . "   CA    0
-                              BRS   1
-                              JU    $600
-642: D3 7D 53 00 00 "...  "   DW    $D37D530000
-643: 00 80 00 50 00 "   . "   CA    0
-                              SI   
-                              JU    $600
-644: D2 75 13 00 00 "..T  "   DW    $D275130000
-645: 00 80 00 54 00 "   . "   DW    $0080005400
-646: 4B 3C 65 00 00 "...  "   DW    $4B3C650000
-647: 00 80 00 58 00 "   . "   CA    0
-                              CIO  
-                              JU    $600
-648: C6 3D B9 00 00 "..I  "   TG    5
-                              ST    $900
-                              HH    0
-                              JU    $6C6
-649: 00 80 00 5C 00 "   . "   CA    0
-                              CIOP 
-                              JU    $600
-64A: C6 3D A6 00 00 "..O  "   DW    $C63DA60000
-64B: 00 80 00 60 00 "   . "   CA    0
-                              DLS   1
-                              JU    $600
-64C: 4B 7D 53 00 00 "...  "   DW    $4B7D530000
-64D: 00 80 00 64 00 "   . "   DW    $0080006400
-64E: 4A 75 13 00 00 "..T  "   DW    $4A75130000
-64F: 00 80 00 68 00 "   . "   CA    0
-                              DRS   1
-                              JU    $600
-650: CF 45 40 00 00 "...  "   DW    $CF45400000
-651: 00 80 00 6C 00 "   . "   DW    $0080006C00
-652: D1 49 F5 00 00 "...  "   DW    $D149F50000
-653: 00 80 00 70 00 "   . "   CA    0
-                              OAO  
-                              JU    $600
-654: D1 49 E6 00 00 "...  "   DW    $D149E60000
-655: 00 80 00 74 00 "   . "   DW    $0080007400
-656: 4A 7D 73 00 00 "...  "   DW    $4A7D730000
-657: 00 80 00 78 00 "   . "   CA    0
-                              OI    $00
-                              JU    $600
-658: 49 2C E3 A4 00 "...M "   XT    4
-                              JU    $3A4
-659: 00 80 00 7C 00 "   . "   CA    0
-                              IST   $00
-                              JU    $600
-65A: 00 00 00 00 00 "     "   DW    $0000000000
-65B: 00 00 00 00 00 "     "   DW    $0000000000
-65C: 00 07 07 E6 5C " 77.."   HH    7
-                              HH    7
-                              JU    $65C
-65D: 00 07 07 E6 5D " 77.."   HH    7
-                              HH    7
-                              JU    $65D
-65F: 00 07 07 E6 5F " 77.."   HH    7
-                              HH    7
-                              JU    $65F
-660: 00 40 1F E6 D8 " ...."   BLS   32
-6D8: D8 70 00 F6 DB ".. .."   OAO  
-                              JC    $6DB
-                              JU    $6D8
-6DB: 00 86 DF 0D 00 " 6.. "   CA    $6DF
-                              JA
-661: 00 E6 DB 00 00 " ..  "   JU    $6DB
-664: E3 C5 85 87 09 "..579"   JM    $585
-                              CA    $709
-6E3: 00 E4 9B 00 00 " .,  "   JU    $49B
-665: DA 26 B4 EB 22 ".OD.K"   XC    6
-                              ST    $4EB
-                              XC    2
-6DA: 00 B4 FA E0 06 " D..6"   ST    $4FA
-                              JU    $006
-666: 00 07 07 E6 66 " 77.."   HH    7
-                              HH    7
-                              JU    $666
-668: 00 07 07 E6 68 " 77.."   HH    7
-                              HH    7
-                              JU    $668
-669: 00 07 07 E6 69 " 77.."   HH    7
-                              HH    7
-                              JU    $669
-66D: FF FF FF FF E2 "....."   DW    $FFFFFFFFE2
-66E: D9 84 E7 48 03 ".4..3"   CA    $4E7
-                              BRS   4
-6D9: 61 F6 DD 06 0A "...6@"   JC    $6DD
-                              HH    6
-                              JU    $661
-6DD: 00 03 E6 DB 00 " 3.. "   HH    3
-                              JU    $6DB
-670: 00 B0 03 E2 83 " &3.3"   ST    3
-                              JU    $283
-672: 7F FF FF FE 00 ".... "   DW    $7FFFFFFE00
-676: FF FF FD 00 00 "...  "   DW    $FFFFFD0000
-677: C4 C7 B7 C7 B7 "..G.G"   JM    $7B7
-                              JM    $7B7
-6C4: CD C7 B7 C7 B7 "..G.G"   JM    $7B7
-                              JM    $7B7
-6CD: 00 C7 B7 E4 80 " .G. "   JM    $7B7
-                              JU    $480
-67D: 00 00 00 00 02 "    2"   DW    $0000000002
-67F: 00 07 07 E6 7F " 77.."   HH    7
-                              HH    7
-                              JU    $67F
-697: 00 00 00 00 03 "    3"   DW    $0000000003
-69B: FF FF FF FC 80 ".... "   DW    $FFFFFFFC80
-6B2: FF FF FF FF E4 "....."   DW    $FFFFFFFFE4
-6B3: CF 87 C2 B0 01 ".7.&1"   CA    $7C2
-                              ST    1
-                              JU    $6CF
-6B4: 00 10 00 00 00 " 0   "   DW    $0010000000
-6B5: FF FF FF FF FD "....."   DW    $FFFFFFFFFD
-6B9: D7 48 83 20 21 "..3-J"   BRSK  4
-                              XC    0
-                              XC    1
-6D7: 00 6A 0B E7 BF " .#.."   DRD   12
+531: 44 40 02 48 85           BLS   3
+                              BRSK  6
+                              JU    $544
+7AC: BF 10 48 85 0A           SK   
+                              BRSK  6
                               JU    $7BF
-6BB: 00 B4 FD E0 00 " D.. "   DW    $00B4FDE000
-6BE: 00 00 00 00 0A "    @"   DW    $000000000A
-6C5: FF FF FF FF FE "....."   DW    $FFFFFFFFFE
-6C8: C9 00 00 00 00 ".    "   DW    $C900000000
-6CA: 28 00 00 00 00 "Q    "   DW    $2800000000
-6CB: 00 00 00 00 03 "    3"   DW    $0000000003
-6D2: 00 07 07 E6 D2 " 77.."   HH    7
-                              HH    7
-                              JU    $6D2
-6D6: 00 00 00 00 04 "    4"   DW    $0000000004
-6DF: 5C 00 F4 AA 0A ". .%@"   DW    $5C00F4AA0A
-6E0: 77 25 80 01 24 ".N 1M"   XC    5
-                              CA    1
-                              XC    4
-                              JU    $677
-6E4: FF FF FF FF B1 "....A"   DW    $FFFFFFFFB1
-6E5: 00 07 07 E6 E5 " 77.."   HH    7
-                              HH    7
-                              JU    $6E5
-6E6: 00 07 07 E6 E6 " 77.."   HH    7
-                              HH    7
-                              JU    $6E6
-6E7: 00 07 07 E6 E7 " 77.."   HH    7
-                              HH    7
-                              JU    $6E7
-6E8: 00 07 07 E6 E8 " 77.."   HH    7
-                              HH    7
-                              JU    $6E8
-6E9: 00 07 07 E6 E9 " 77.."   HH    7
-                              HH    7
-                              JU    $6E9
-6EB: 00 07 07 E6 EB " 77.."   HH    7
-                              HH    7
-                              JU    $6EB
-6EE: 00 07 07 E6 EE " 77.."   HH    7
-                              HH    7
-                              JU    $6EE
-6EF: 00 07 07 E6 EF " 77.."   HH    7
-                              HH    7
-                              JU    $6EF
-6F0: 00 40 00 00 00 " .   "   BLS   1
-                              HH    0
-                              HH    0
-                              JU    $600
-6F7: 00 07 07 E6 F7 " 77.."   HH    7
-                              HH    7
-                              JU    $6F7
-6FD: 00 84 EA E0 00 " 4.. "   DW    $0084EAE000
-6FE: FF FF FF FC 40 "....."   DW    $FFFFFFFC40
-702: 00 00 00 00 10 "    0"   DW    $0000000010
-703: 8F F5 71 40 00 ".... "   JC    $571
-                              BLS   1
-78F: 9E 27 F7 1A 0A ".P.*@"   XC    7
-                              JC    $71A
-791: F1 0F 84 EB 0A           BI   
-                              CA    $4EB
-7F1: 00 48 00 E4 FE           BRS   1
-                              JU    $4FE
-79E: 08 25 B4 FD 25 "8ND.N"   XC    5
-                              ST    $4FD
-                              XC    5
-708: 76 22 B4 EF 13 ".KD.T"   XC    2
-                              ST    $4EF
-                              RK   
-776: 00 80 07 E0 01 "  7.1"   CA    7
-                              JU    $001
-71A: 9E 25 0B 25 0A ".N#N@"   XC    5
-                              CM   
-                              XC    5
-                              JU    $79E
-704: 00 4A 00 E7 0D " . .."   BRD   1
-70D: 1C 21 D0 04 21 ".J.4J"   XC    1
-                              AC    4
-                              XC    1
-71C: 00 4A 00 E7 25 " . .N"   BRD   1
-725: 34 21 D0 04 21 "DJ.4J"   XC    1
-                              AC    4
-                              XC    1
-734: 00 4A 00 E7 3D " . .."   BRD   1
-73D: 4C 21 D0 04 21 ".J.4J"   XC    1
-                              AC    4
-                              XC    1
-74C: 00 4A 00 E7 55 " . .."   BRD   1
-755: 64 21 D0 04 21 ".J.4J"   XC    1
-                              AC    4
-                              XC    1
-764: 00 4A 00 E7 6D " . .."   BRD   1
-76D: 7C 21 D0 04 21 ".J.4J"   XC    1
-                              AC    4
-                              XC    1
-77C: 07 48 00 F7 04 "7. .4"   BRS   1
-                              JC    $704
-707: 00 4A 00 E4 F9 " . .."   BRD   1
-                              JU    $4F9
-705: 00 00 00 03 00 "   3 "   DW    $0000000300
-706: 00 B4 E9 E0 01 " D..1"   ST    $4E9
-                              JU    $001
-709: 00 00 00 00 80 "     "   DW    $0000000080
-70E: 21 87 12 24 0A "J7SM@"   CA    $712
-                              XC    4
-721: AF 80 07 11 0A ". 7/@"   CA    7
-                              TZ   
-7AF: 3A F7 39 12 0A "..IS@"   JC    $739
-                              TH   
-73A: 4A F7 BE 0B 27 "...#P"   JC    $7BE
-                              CM   
-                              XC    7
-74A: 70 42 00 B4 EC ".. D."   BLD   1
-                              ST    $4EC
-770: FC 40 00 97 78 ".. X."   BLS   1
-                              AD    $778
-7FC: 39 39 F7 84 09 "II.49"   TG    1
-                              JC    $784
-                              CL   
-                              JU    $739
-739: CC B0 01 B0 00 ".&1& "   ST    1
-                              ST    0
-7CC: 00 E4 F9 00 00 " ..  "   JU    $4F9
-784: 85 84 EC 24 0A "54.M@"   CA    $4EC
-                              XC    4
-785: 93 21 3C D0 07 "TJ..7"   XC    1
-                              TG    4
-                              AC    7
-793: A5 21 0A 42 80 "NJ@. "   XC    1
-                              BLDK  1
-7A5: B3 21 3C D0 07 "CJ..7"   XC    1
-                              TG    4
-                              AC    7
-7B3: DD 21 0A 42 80 ".J@. "   XC    1
-                              BLDK  1
-7DD: EB 21 3C D0 07 ".J..7"   XC    1
-                              TG    4
-                              AC    7
-7EB: FD 21 0A 42 80 ".J@. "   XC    1
-                              BLDK  1
-7FD: 8B 21 3C D0 07 "#J..7"   XC    1
-                              TG    4
-                              AC    7
-78B: 9D 21 0A 42 80 ".J@. "   XC    1
-                              BLDK  1
-79D: AB 21 3C D0 07 "$J..7"   XC    1
-                              TG    4
-                              AC    7
-7AB: BD 21 0A 42 80 ".J@. "   XC    1
-                              BLDK  1
-7BD: 48 48 00 F7 C5 ".. .."   BRS   1
-                              JC    $7C5
-748: 5E 21 3C 20 08 ".J.-8"   XC    1
-                              TG    4
-                              XC    0
-                              AK   
-75E: 71 B0 01 97 ED ".&1X."   ST    1
-                              AD    $7ED
-771: 7E 09 F7 39 23 ".9.IL"   CL   
-                              JC    $739
-                              XC    3
-77E: 8E 12 80 01 0A ".S 1@"   TH   
-                              CA    1
-78E: 00 F7 92 E4 F9 " .S.."   JC    $792
-                              JU    $4F9
-792: 00 0B 21 E4 F9 " #J.."   CM   
-                              XC    1
-                              JU    $4F9
-7BE: 4A 0B 23 0B 23 ".#L#L"   CM   
-                              XC    3
-                              CM   
-                              XC    3
-                              JU    $74A
-7C5: D3 21 3C D0 07 ".J..7"   XC    1
-                              TG    4
-                              AC    7
-7D3: E5 21 0A 42 80 ".J@. "   XC    1
-                              BLDK  1
-7E5: F3 21 3C D0 07 ".J..7"   XC    1
-                              TG    4
-                              AC    7
-7F3: 85 21 0A 42 80 "5J@. "   XC    1
-                              BLDK  1
-                              JU    $785
-70F: 20 09 21 12 0A "-9JS@"   CL   
-                              XC    1
-                              TH   
-720: 32 B0 03 F7 2F "B&3.."   ST    3
-                              JC    $72F
-732: 3E 11 F7 39 0A "./.I@"   TZ   
-                              JC    $739
-73E: 51 20 12 F7 4E ".-S.."   XC    0
-                              TH   
-                              JC    $74E
-751: 5C 11 F7 39 0A "./.I@"   TZ   
-                              JC    $739
-75C: 04 24 87 67 0A "4M7.@"   XC    4
-                              CA    $767
-                              JU    $704
-72F: 00 0B E7 3E 00 " #.. "   CM   
-                              JU    $73E
-74E: 5C 0B 23 0B 23 ".#L#L"   CM   
-                              XC    3
-                              CM   
-                              XC    3
-                              JU    $75C
-718: 0A 84 E7 40 17 "@4..X"   CA    $4E7
-                              BLS   24
-                              JU    $70A
-71B: 9C B4 FE F7 9B ".D..,"   ST    $4FE
-                              JC    $79B
-                              JU    $79C
-79B: AA 80 00 12 09 "%  S9"   CA    0
-                              TH   
-                              CL   
-7AA: 00 F7 AE E7 31 " ...A"   JC    $7AE
-731: 31 70 00 F6 B9 "A. .I"   OAO  
+;
+; $79B - Output a number where the edit word has the MSB set.
+;
+; This is the case when the number should have a leading sign.  Either a
+; space or a minus sign is printed and then the rest of the number is
+; printed normally.
+;
+79B: AA 80 00 12 09           CA    0           ; Fetch the number from S0.
+                              TH                ; Is it negative (MSB is set)?
+                              CL                ; Load a space for +ve sign.
+7AA: 00 F7 AE E7 31           JC    $7AE        ; Jump to $7AE if negative.
+731: 31 70 00 F6 B9           OAO               ; Output the sign character.
                               JC    $6B9
                               JU    $731
-7AE: 66 40 A5 20 0B "..N-#"   BLSK  38
+6B9: D7 48 83 20 21           BRSK  4
                               XC    0
-                              CM   
-766: 00 20 E7 31 00 " -.A "   XC    0
-                              JU    $731
-71E: 2D B0 02 48 03 ".&2.3"   ST    2
-                              BRS   4
-72D: 40 25 F0 06 25 ".N.6N"   XC    5
-                              JC    6
-                              XC    5
-740: 53 80 02 48 01 ". 2.1"   CA    2
-                              BRS   2
-753: DE F7 57 48 00 ".... "   JC    $757
-                              BRS   1
-7DE: 00 F7 62 E7 0C " ...."   JC    $762
-                              JU    $70C
-757: 69 27 40 00 10 ".P. 0"   XC    7
-                              BLS   1
-                              SK   
-769: 00 48 80 E5 71 " . .."   BRSK  1
-                              JU    $571
-762: 6E 48 01 F7 6B "..1.."   BRS   2
-                              JC    $76B
-76E: 03 48 03 27 0A "3.3P@"   BRS   4
-                              XC    7
-                              JU    $703
-76B: F8 27 12 F7 0C ".PS.."   XC    7
-                              TH   
-                              JC    $70C
-7F8: 83 11 F7 06 0A "3/.6@"   TZ   
-                              JC    $706
-783: 75 84 ED 11 0A ".4./@"   CA    $4ED
-                              TZ   
-775: 80 F7 79 12 0A " ..S@"   JC    $779
-                              TH   
-780: 10 00 04 00 01 "0 4 1"   HH    0
-                              HH    4
-                              HH    0
-                              HH    1
-                              JU    $710
-779: 06 90 05 10 0A "6050@"   AD    5
-                              SK   
-                              JU    $706
-73C: CF 14 87 43 23 ".U7.L"   TP   
-                              CA    $743
-                              XC    3
-                              JU    $7CF
-743: 00 00 00 00 1B "    ,"   DW    $000000001B
-749: 60 97 4D B0 00 ".X.& "   AD    $74D
+                              XC    1
+6D7: 00 6A 0B E7 BF           DRD   12
+7BF: 00 21 E7 9C 00           XC    1
+                              JU    $79C
+7AE: 66 40 A5 20 0B           BLSK  38          ; Effectively loads '-' into A.
+                              XC    0
+                              CM                ; Negate the number to output.
+766: 00 20 E7 31 00           XC    0
+                              JU    $731        ; Go back to print the '-' sign.
+;
+; $699 - Print a register number followed by '#'.
+;
+699: F1 B4 F1 84 ED           ST    $4F1        ; Store return address in $4F1.
+                              CA    $4ED        ; Check the register mode.
+6F1: 7E 11 F6 79 12           TZ                ; Is it hexadecimal mode?
+                              JC    $679        ; Yes, jump to $679.
+                              TH                ; Program or storage registers?
+67E: 7B 84 F4 F6 F9           CA    $4F4
+                              JC    $6F9        ; Jump to $5F9 if storage.
+67B: 9C 96 9B 97 09           AD    $69B
+                              AD    $709
+69C: 00 F6 A2 E7 0C           JC    $6A2
+                              JU    $70C        ; Print "ERR" and stop.
+679: A6 84 F4 40 1B           CA    $4F4
+                              BLS   28
+6A6: B8 B0 00 96 B4           ST    0
+                              AD    $6B4
+6B8: C3 F7 0C 85 BF           JC    $70C        ; Print "ERR" and stop.
+                              CA    $5BF
+6C3: 00 E6 CC 00 00           JU    $6CC
+6CC: A5 B0 01 C7 00           ST    1
+                              JM    $700        ; Print the number in S1.
+6A5: A5 78 0B F4 F1           OI    $0B         ; Print a '#'.
+                              JC    $4F1        ; Return from the subroutine.
+                              JU    $6A5
+6A2: BC 60 08 B0 00           DLS   9
                               ST    0
-760: C9 68 01 B0 05 "..1&5"   DRS   2
-                              ST    5
-7C9: D8 60 01 0B 0A "..1#@"   DLS   2
-                              CM   
-7D8: EE 90 00 90 05 ".0 05"   AD    0
-                              AD    5
-7EE: CB 92 73 11 0A ".S./@"   AD    $273
-                              TZ   
-7CB: 00 F7 C3 E7 0C " ...."   JC    $7C3
-                              JU    $70C
-7C3: D0 87 C7 2B 0A ".7.$@"   CA    $7C7
-                              XT    3
-7D0: 00 48 13 E4 9B " .T.,"   BRS   20
-                              JU    $49B
-74D: 00 00 00 00 32 "    B"   DW    $0000000032
-758: E9 90 05 B0 05 ".05&5"   AD    5
-                              ST    5
-7E9: 49 60 00 90 05 ".. 05"   DLS   1
-                              AD    5
-                              JU    $749
-759: E4 40 00 F7 61 ".. .."   BLS   1
-                              JC    $761
-7E4: 6F 40 00 F7 EC ".. .."   BLS   1
-                              JC    $7EC
-76F: C3 C5 83 F7 0C "..3.."   JM    $583
-                              JC    $70C
-                              JU    $7C3
-761: C8 C5 83 F7 0C "..3.."   JM    $583
-                              JC    $70C
-7C8: 58 80 05 40 00 ". 5. "   CA    5
+6BC: 00 86 C8 E6 CC           CA    $6C8
+                              JU    $6CC
+6F9: A4 96 FE 97 86           AD    $6FE
+                              AD    $786
+6A4: 00 E6 9C 00 00           JU    $69C
+;
+5BF: 7F C0 00 00 00           DW    $7FC0000000
+69B: FF FF FF FC 80           DW    $FFFFFFFC80
+6B4: 00 10 00 00 00           DW    $0010000000
+6C8: C9 00 00 00 00           DW    $C900000000
+5FE: 10 97 02 11 0A           DW    $109702110A
+709: 00 00 00 00 80           DW    $0000000080
+786: 00 00 00 00 40           DW    $0000000040
+;
+; $795 - Check if the address in $4F4 is greater than or equal to $3BF.
+; If it is, then return with K set to 1.  Otherwise increment the address
+; in $4F4 and return with K set to 0.
+;
+795: F4 20 84 E9 21           XC    0           ; Put return address into S0.
+                              CA    $4E9
+                              XC    1
+7F4: 23 84 F4 39 0A           CA    $4F4        ; Compare value of $4F4
+                              TG    1           ; with S1 = $3BF.
+723: B0 F0 00 10 08           JC    0
+                              SK                ; Increment $4F4.
+                              AK
+7B0: 00 B4 F4 E0 00           ST    $4F4
+                              JU    0           ; Return from the subroutine.
+4E9: 00 00 00 03 BF           DW    $00000003BF
+;
+; $72E - Reads the word at the memory address in $4F4 into $4FD.
+;
+72E: 45 20 86 BB 22           XC    0           ; Put return address into S0.
+                              CA    $6BB
+                              XC    2           ; Copy $6BB instruction into S2.
+745: A2 84 F4 40 07           CA    $4F4        ; Get the address to read and
+                              BLS   8           ; add it to the instruction
+7A2: B5 97 A6 B0 01           AD    $7A6        ; at $7A6.
+                              ST    1           ; Put the new instruction in S1
+7B5: 00 E0 01 00 00           JU    1           ; and then execute it.
+6BB: 00 B4 FD E0 00           ST    $4FD
+                              JU    0
+7A6: 02 0F 80 00 0F           BI
+                              CA    $000        ; Replaced with address to read.
+                              BI
+                              JU    2
+;
+; $6A1 - Prints the value in $4FD.
+;
+6A1: A9 B4 F1 84 FD           ST    $4F1        ; Put return address in $4F1.
+                              CA    $4FD        ; Get the value to print.
+6A9: 6B 20 84 E6 0A           XC    0           ; Put it into S0.
+                              CA    $4E6        ; Get the number format rules.
+66B: FB B0 01 48 01           ST    1           ; Put them into S1.
+                              BRS   2           ; Is the edit word octal?
+6FB: 00 F7 A8 E7 A9           JC    $7A8        ; Jump to $7A8 if it is.
+7A9: 00 C7 00 E4 F1           JM    $700        ; Print the number in S0.
+                              JU    $4F1        ; Return from subroutine.
+;
+; Special case for printing octal.  Deal with the high bit by printing
+; either a space or a '1'.  Then print the rest of the word.
+;
+7A8: BC 20 40 00 20           XC    0           ; Shift the number up by 1 bit.
                               BLS   1
-                              JU    $758
-7EC: C4 C5 83 84 A2 "..34K"   JM    $583
-                              CA    $4A2
-7C4: 00 E4 9B 00 00 " .,  "   JU    $49B
-75A: 00 07 07 E7 5A " 77.."   HH    7
-                              HH    7
-                              JU    $75A
-75F: 22 B3 BF E0 08 "KC..8"   ST    $3BF
-                              JU    $008
-765: 00 07 07 E7 65 " 77.."   HH    7
-                              HH    7
-                              JU    $765
-767: 00 00 00 00 7F "    ."   DW    $000000007F
-77F: 00 07 07 E7 7F " 77.."   HH    7
-                              HH    7
-                              JU    $77F
-789: 18 B0 00 7E C0 "Y& .."   DW    $18B0007EC0
-78D: 1E 87 11 1A 0A ".7/*@"   CA    $711
-                              LA    2
-                              JU    $71E
-794: 00 00 00 00 BF "    ."   DW    $00000000BF
-7A6: 02 0F 80 00 0F "2.  ."   DW    $020F80000F
-7C1: FF FF FF FF BB "....."   DW    $FFFFFFFFBB
-7C7: 00 0E 00 00 00 " .   "   DW    $000E000000
-7CD: 00 07 07 E7 CD " 77.."   HH    7
-                              HH    7
-                              JU    $7CD
-7D9: 00 07 07 E7 D9 " 77.."   HH    7
-                              HH    7
-                              JU    $7D9
-7DA: 00 07 07 E7 DA " 77.."   HH    7
-                              HH    7
-                              JU    $7DA
-7DB: 26 83 00 E4 40 "O3 .."   CA    $300
-                              JU    $440
-7E0: EF 96 E4 11 0A ".W./@"   AD    $6E4
-                              TZ   
-7EF: 00 F6 B3 E7 0C " .C.."   JC    $6B3
-                              JU    $70C
-7E1: 00 07 07 E7 E1 " 77.."   HH    7
-                              HH    7
-                              JU    $7E1
-7E2: 00 07 07 E7 E2 " 77.."   HH    7
-                              HH    7
-                              JU    $7E2
-7E3: 00 07 07 E7 E3 " 77.."   HH    7
-                              HH    7
-                              JU    $7E3
-7E7: 00 07 07 E7 E7 " 77.."   HH    7
-                              HH    7
-                              JU    $7E7
-7E8: 00 07 07 E7 E8 " 77.."   HH    7
-                              HH    7
-                              JU    $7E8
-7ED: E8 B7 89 18 00 ".G9Y "   DW    $E8B7891800
-7F7: FF FF FF FC 00 ".... "   JC    $FFF
-                              JC    $C00
-                              JU    $7FF
-F00: 18 00 04 00 08 "Y 4 8"   HH    0
-                              HH    4
-                              HH    0
-                              AK   
-F18: 00 00 00 00 00 "     "   DW    $0000000000
-F01: 00 04 20 04 00 " 4-4 "   HH    4
                               XC    0
-                              HH    4
-                              HH    0
-                              JU    $F00
-F02: 00 00 00 00 00 "     "   DW    $0000000000
-F03: 00 00 00 00 00 "     "   DW    $0000000000
-F04: 00 00 00 00 00 "     "   DW    $0000000000
-F05: 00 00 00 00 00 "     "   DW    $0000000000
-F06: 00 00 00 00 00 "     "   DW    $0000000000
-F07: 00 00 00 00 00 "     "   DW    $0000000000
-F08: 00 00 00 00 00 "     "   DW    $0000000000
-F09: 00 00 00 00 00 "     "   DW    $0000000000
-F0A: 00 00 00 00 00 "     "   DW    $0000000000
-F0B: 00 00 00 00 00 "     "   DW    $0000000000
-F0C: 00 00 00 00 00 "     "   DW    $0000000000
-F0D: 00 00 00 00 00 "     "   DW    $0000000000
-F0E: 00 00 00 00 00 "     "   DW    $0000000000
-F0F: 00 00 00 00 00 "     "   DW    $0000000000
-F10: 00 00 00 00 00 "     "   DW    $0000000000
-F11: 00 00 00 00 00 "     "   DW    $0000000000
-F12: 00 00 00 00 00 "     "   DW    $0000000000
-F13: 00 00 00 00 00 "     "   DW    $0000000000
-F14: 00 00 00 00 00 "     "   DW    $0000000000
-F15: 00 00 00 00 00 "     "   DW    $0000000000
-F16: 00 00 00 00 00 "     "   DW    $0000000000
-F17: 00 00 00 00 00 "     "   DW    $0000000000
-F19: 00 00 00 00 00 "     "   DW    $0000000000
-F1A: 00 00 00 00 00 "     "   DW    $0000000000
-F1B: 00 00 00 00 00 "     "   DW    $0000000000
-F1C: 00 00 00 00 00 "     "   DW    $0000000000
-F1D: 00 00 00 00 00 "     "   DW    $0000000000
-F1E: 00 00 00 00 00 "     "   DW    $0000000000
-F1F: 00 00 00 00 00 "     "   DW    $0000000000
-F20: 00 00 00 00 00 "     "   DW    $0000000000
-F21: 00 00 00 00 00 "     "   DW    $0000000000
-F22: 00 00 00 00 00 "     "   DW    $0000000000
-F23: 00 00 00 00 00 "     "   DW    $0000000000
-F24: 00 00 00 00 00 "     "   DW    $0000000000
-F25: 00 00 00 00 00 "     "   DW    $0000000000
-F26: 00 00 00 00 00 "     "   DW    $0000000000
-F27: 00 00 00 00 00 "     "   DW    $0000000000
-F28: 00 00 00 00 00 "     "   DW    $0000000000
-F29: 00 00 00 00 00 "     "   DW    $0000000000
-F2A: 00 00 00 00 00 "     "   DW    $0000000000
-F2B: 00 00 00 00 00 "     "   DW    $0000000000
-F2C: 00 00 00 00 00 "     "   DW    $0000000000
-F2D: 00 00 00 00 00 "     "   DW    $0000000000
-F2E: 00 00 00 00 00 "     "   DW    $0000000000
-F2F: 00 00 00 00 00 "     "   DW    $0000000000
-F30: 00 00 00 00 00 "     "   DW    $0000000000
-F31: 00 00 00 00 00 "     "   DW    $0000000000
-F32: 00 00 00 00 00 "     "   DW    $0000000000
-F33: 00 00 00 00 00 "     "   DW    $0000000000
-F34: 00 00 00 00 00 "     "   DW    $0000000000
-F35: 00 00 00 00 00 "     "   DW    $0000000000
-F36: 00 00 00 00 00 "     "   DW    $0000000000
-F37: 00 00 00 00 00 "     "   DW    $0000000000
-F38: 00 00 00 00 00 "     "   DW    $0000000000
-F39: 00 00 00 00 00 "     "   DW    $0000000000
-F3A: 00 00 00 00 00 "     "   DW    $0000000000
-F3B: 00 00 00 00 00 "     "   DW    $0000000000
-F3C: 00 00 00 00 00 "     "   DW    $0000000000
-F3D: 00 00 00 00 00 "     "   DW    $0000000000
-F3E: 00 00 00 00 00 "     "   DW    $0000000000
-F3F: 00 00 00 00 00 "     "   DW    $0000000000
-F40: 00 00 00 00 00 "     "   DW    $0000000000
-F41: 00 00 00 00 00 "     "   DW    $0000000000
-F42: 00 00 00 00 00 "     "   DW    $0000000000
-F43: 00 00 00 00 00 "     "   DW    $0000000000
-F44: 00 00 00 00 00 "     "   DW    $0000000000
-F45: 00 00 00 00 00 "     "   DW    $0000000000
-F46: 00 00 00 00 00 "     "   DW    $0000000000
-F47: 00 00 00 00 00 "     "   DW    $0000000000
-F48: 00 00 00 00 00 "     "   DW    $0000000000
-F49: 00 00 00 00 00 "     "   DW    $0000000000
-F4A: 00 00 00 00 00 "     "   DW    $0000000000
-F4B: 00 00 00 00 00 "     "   DW    $0000000000
-F4C: 00 00 00 00 00 "     "   DW    $0000000000
-F4D: 00 00 00 00 00 "     "   DW    $0000000000
-F4E: 00 00 00 00 00 "     "   DW    $0000000000
-F4F: 00 00 00 00 00 "     "   DW    $0000000000
-F50: 00 00 00 00 00 "     "   DW    $0000000000
-F51: 00 00 00 00 00 "     "   DW    $0000000000
-F52: 00 00 00 00 00 "     "   DW    $0000000000
-F53: 00 00 00 00 00 "     "   DW    $0000000000
-F54: 00 00 00 00 00 "     "   DW    $0000000000
-F55: 00 00 00 00 00 "     "   DW    $0000000000
-F56: 00 00 00 00 00 "     "   DW    $0000000000
-F57: 00 00 00 00 00 "     "   DW    $0000000000
-F58: 00 00 00 00 00 "     "   DW    $0000000000
-F59: 00 00 00 00 00 "     "   DW    $0000000000
-F5A: 00 00 00 00 00 "     "   DW    $0000000000
-F5B: 00 00 00 00 00 "     "   DW    $0000000000
-F5C: 00 00 00 00 00 "     "   DW    $0000000000
-F5D: 00 00 00 00 00 "     "   DW    $0000000000
-F5E: 00 00 00 00 00 "     "   DW    $0000000000
-F5F: 00 00 00 00 00 "     "   DW    $0000000000
-F60: 00 00 00 00 00 "     "   DW    $0000000000
-F61: 00 00 00 00 00 "     "   DW    $0000000000
-F62: 00 00 00 00 00 "     "   DW    $0000000000
-F63: 00 00 00 00 00 "     "   DW    $0000000000
-F64: 00 00 00 00 00 "     "   DW    $0000000000
-F65: 00 00 00 00 00 "     "   DW    $0000000000
-F66: 00 00 00 00 00 "     "   DW    $0000000000
-F67: 00 00 00 00 00 "     "   DW    $0000000000
-F68: 00 00 00 00 00 "     "   DW    $0000000000
-F69: 00 00 00 00 00 "     "   DW    $0000000000
-F6A: 00 00 00 00 00 "     "   DW    $0000000000
-F6B: 00 00 00 00 00 "     "   DW    $0000000000
-F6C: 00 00 00 00 00 "     "   DW    $0000000000
-F6D: 00 00 00 00 00 "     "   DW    $0000000000
-F6E: 00 00 00 00 00 "     "   DW    $0000000000
-F6F: 00 00 00 00 00 "     "   DW    $0000000000
-F70: 00 00 00 00 00 "     "   DW    $0000000000
-F71: 00 00 00 00 00 "     "   DW    $0000000000
-F72: 00 00 00 00 00 "     "   DW    $0000000000
-F73: 00 00 00 00 00 "     "   DW    $0000000000
-F74: 00 00 00 00 00 "     "   DW    $0000000000
-F75: 00 00 00 00 00 "     "   DW    $0000000000
-F76: 00 00 00 00 00 "     "   DW    $0000000000
-F77: 00 00 00 00 00 "     "   DW    $0000000000
-F78: 00 00 00 00 00 "     "   DW    $0000000000
-F79: 00 00 00 00 00 "     "   DW    $0000000000
-F7A: 00 00 00 00 00 "     "   DW    $0000000000
-F7B: 00 00 00 00 00 "     "   DW    $0000000000
-F7C: 00 00 00 00 00 "     "   DW    $0000000000
-F7D: 00 00 00 00 00 "     "   DW    $0000000000
-F7E: 00 00 00 00 00 "     "   DW    $0000000000
-F7F: 00 00 00 00 00 "     "   DW    $0000000000
-F80: 18 00 04 00 18 "Y 4 Y"   HH    0
-                              HH    4
-                              HH    0
-                              LA    0
-                              JU    $F18
-F81: 00 04 00 04 00 " 4 4 "   HH    4
-                              HH    0
-                              HH    4
-                              HH    0
-                              JU    $F00
-F82: 00 00 00 00 00 "     "   DW    $0000000000
-F83: 00 00 00 00 00 "     "   DW    $0000000000
-F84: 00 00 00 00 00 "     "   DW    $0000000000
-F85: 00 00 00 00 00 "     "   DW    $0000000000
-F86: 00 00 00 00 00 "     "   DW    $0000000000
-F87: 00 00 00 00 00 "     "   DW    $0000000000
-F88: 00 00 00 00 00 "     "   DW    $0000000000
-F89: 00 00 00 00 00 "     "   DW    $0000000000
-F8A: 00 00 00 00 00 "     "   DW    $0000000000
-F8B: 00 00 00 00 00 "     "   DW    $0000000000
-F8C: 00 00 00 00 00 "     "   DW    $0000000000
-F8D: 00 00 00 00 00 "     "   DW    $0000000000
-F8E: 00 00 00 00 00 "     "   DW    $0000000000
-F8F: 00 00 00 00 00 "     "   DW    $0000000000
-F90: 00 00 00 00 00 "     "   DW    $0000000000
-F91: 00 00 00 00 00 "     "   DW    $0000000000
-F92: 00 00 00 00 00 "     "   DW    $0000000000
-F93: 00 00 00 00 00 "     "   DW    $0000000000
-F94: 00 00 00 00 00 "     "   DW    $0000000000
-F95: 00 00 00 00 00 "     "   DW    $0000000000
-F96: 00 00 00 00 00 "     "   DW    $0000000000
-F97: 00 00 00 00 00 "     "   DW    $0000000000
-F98: 00 00 00 00 00 "     "   DW    $0000000000
-F99: 00 00 00 00 00 "     "   DW    $0000000000
-F9A: 00 00 00 00 00 "     "   DW    $0000000000
-F9B: 00 00 00 00 00 "     "   DW    $0000000000
-F9C: 00 00 00 00 00 "     "   DW    $0000000000
-F9D: 00 00 00 00 00 "     "   DW    $0000000000
-F9E: 00 00 00 00 00 "     "   DW    $0000000000
-F9F: 00 00 00 00 00 "     "   DW    $0000000000
-FA0: 00 00 00 00 00 "     "   DW    $0000000000
-FA1: 00 00 00 00 00 "     "   DW    $0000000000
-FA2: 00 00 00 00 00 "     "   DW    $0000000000
-FA3: 00 00 00 00 00 "     "   DW    $0000000000
-FA4: 00 00 00 00 00 "     "   DW    $0000000000
-FA5: 00 00 00 00 00 "     "   DW    $0000000000
-FA6: 00 00 00 00 00 "     "   DW    $0000000000
-FA7: 00 00 00 00 00 "     "   DW    $0000000000
-FA8: 00 00 00 00 00 "     "   DW    $0000000000
-FA9: 00 00 00 00 00 "     "   DW    $0000000000
-FAA: 00 00 00 00 00 "     "   DW    $0000000000
-FAB: 00 00 00 00 00 "     "   DW    $0000000000
-FAC: 00 00 00 00 00 "     "   DW    $0000000000
-FAD: 00 00 00 00 00 "     "   DW    $0000000000
-FAE: 00 00 00 00 00 "     "   DW    $0000000000
-FAF: 00 00 00 00 00 "     "   DW    $0000000000
-FB0: 00 00 00 00 00 "     "   DW    $0000000000
-FB1: 00 00 00 00 00 "     "   DW    $0000000000
-FB2: 00 00 00 00 00 "     "   DW    $0000000000
-FB3: 00 00 00 00 00 "     "   DW    $0000000000
-FB4: 00 00 00 00 00 "     "   DW    $0000000000
-FB5: 00 00 00 00 00 "     "   DW    $0000000000
-FB6: 00 00 00 00 00 "     "   DW    $0000000000
-FB7: 00 00 00 00 00 "     "   DW    $0000000000
-FB8: 00 00 00 00 00 "     "   DW    $0000000000
-FB9: 00 00 00 00 00 "     "   DW    $0000000000
-FBA: 00 00 00 00 00 "     "   DW    $0000000000
-FBB: 00 00 00 00 00 "     "   DW    $0000000000
-FBC: 00 00 00 00 00 "     "   DW    $0000000000
-FBD: 00 00 00 00 00 "     "   DW    $0000000000
-FBE: 00 00 00 00 00 "     "   DW    $0000000000
-FBF: 00 00 00 00 00 "     "   DW    $0000000000
-FC0: 00 00 00 00 00 "     "   DW    $0000000000
-FC1: 00 00 00 00 00 "     "   DW    $0000000000
-FC2: 00 00 00 00 00 "     "   DW    $0000000000
-FC3: 00 00 00 00 00 "     "   DW    $0000000000
-FC4: 00 00 00 00 00 "     "   DW    $0000000000
-FC5: 00 00 00 00 00 "     "   DW    $0000000000
-FC6: 00 00 00 00 00 "     "   DW    $0000000000
-FC7: 00 00 00 00 00 "     "   DW    $0000000000
-FC8: 00 00 00 00 00 "     "   DW    $0000000000
-FC9: 00 00 00 00 00 "     "   DW    $0000000000
-FCA: 00 00 00 00 00 "     "   DW    $0000000000
-FCB: 00 00 00 00 00 "     "   DW    $0000000000
-FCC: 00 00 00 00 00 "     "   DW    $0000000000
-FCD: 00 00 00 00 00 "     "   DW    $0000000000
-FCE: 00 00 00 00 00 "     "   DW    $0000000000
-FCF: 00 00 00 00 00 "     "   DW    $0000000000
-FD0: D1 B4 F9 89 86 ".D.96"   DW    $D1B4F98986
-FD1: 00 E8 05 00 00 " .5  "   JU    $805
-FD2: 20 2A 34 38 38 "-%DHH"   XT    2
-                              TE    4
-                              TG    0
-                              TG    0
-                              JU    $F20
-FD3: 00 1C 00 00 00 " .   "   LA    4
-                              HH    0
-                              HH    0
-                              HH    0
-                              JU    $F00
-FD4: 00 EA 5A 00 00 " ..  "   JU    $A5A
-FD5: 00 00 00 00 00 "     "   DW    $0000000000
-FD6: 00 00 00 00 00 "     "   DW    $0000000000
-FD7: E6 C9 E0 CA 1B "....,"   JM    $9E0
-                              JM    $A1B
-FE6: D7 21 11 FF F6 ".J/.."   XC    1
-                              TZ   
-                              JC    $FF6
-                              JU    $FD7
-FF6: F9 86 7D B8 10 ".6.H0"   CA    $67D
-                              ST    $810
-FF9: 00 88 B2 E8 B6 " 8B.F"   CA    $8B2
-                              JU    $8B6
-FD8: F6 C9 E0 CF D0 "....."   JM    $9E0
-                              JM    $FD0
-                              JU    $FF6
-FD9: F6 C9 E0 C8 22 "....K"   JM    $9E0
-                              JM    $822
-                              JU    $FF6
-FDA: 00 EF D9 00 00 " ..  "   JU    $FD9
-FDB: F6 C9 E0 CF D0 "....."   JM    $9E0
-                              JM    $FD0
-                              JU    $FF6
-FDC: 01 30 49 49 30 "1&..&"   DW    $0130494930
-FDD: 01 01 78 01 01 "11.11"   HH    1
-                              OI    $01
-                              HH    1
-                              JU    $F01
-FDE: 29 48 58 29 01 "R..R1"   BRS   89
-                              XT    1
-                              HH    1
-                              JU    $F29
-FDF: 49 49 58 21 01 "...J1"   DW    $4949582101
-FE0: 70 10 78 10 01 ".0.01"   SK   
-                              OI    $10
-                              HH    1
-                              JU    $F70
-FE1: 79 58 58 41 01 "....1"   DW    $7958584101
-FE2: 30 58 58 41 01 "&...1"   DW    $3058584101
-FE3: 68 41 51 61 01 "....1"   DW    $6841516101
-FE4: 21 58 58 21 01 "J..J1"   DW    $2158582101
-FE5: 20 58 58 71 01 "-...1"   DW    $2058587101
-FE7: 46 31 34 34 53 ".ADD."   DW    $4631343453
-FE8: 40 2E 2C 2C 1C "....."   XT    6
-                              XT    4
-                              XT    4
-                              LA    4
-                              JU    $F40
-FE9: 46 33 38 31 25 ".CHAN"   TE    3
-                              TG    0
-                              TE    1
-                              XC    5
-                              JU    $F46
-FEA: 37 35 1C 00 00 "GE.  "   TE    5
-                              LA    4
-                              HH    0
-                              HH    0
-                              JU    $F37
-FEB: 09 09 09 1D 00 "999. "   CL   
-                              CL   
-                              LA    5
-                              HH    0
-                              JU    $F09
-FEC: 01 01 1C 00 00 "11.  "   HH    1
-                              LA    4
-                              HH    0
-                              HH    0
-                              JU    $F01
-FED: 46 27 29 39 25 ".PRIN"   XC    7
-                              XT    1
-                              TG    1
-                              XC    5
-                              JU    $F46
-FEE: 01 01 04 01 41 "1141."   DW    $0101040141
-FEF: 1F 01 01 01 01 ".1111"   HH    1
-                              HH    1
-                              HH    1
-                              HH    1
-                              JU    $F1F
-FF0: 55 2E 1C 00 00 "...  "   XT    6
-                              LA    4
-                              HH    0
-                              HH    0
-                              JU    $F55
-FF1: 00 00 00 0D B2 "   .B"   DW    $0000000DB2
-FF2: 00 00 00 00 00 "     "   DW    $0000000000
-FF3: 54 1A 1A 1A 00 ".*** "   LA    2
-                              LA    2
-                              LA    2
-                              HH    0
-                              JU    $F54
-FF4: 54 2D 2D 2D 1C "....."   XT    5
-                              XT    5
-                              XT    5
-                              LA    4
-                              JU    $F54
-FF5: FD 4C 9D EE 39 "....I"   DW    $FD4C9DEE39
-FF7: F8 F8 1E 97 78 "...X."   JC    $81E
-                              AD    $778
-FF8: F9 11 F8 8D 0A "./..@"   TZ   
-                              JC    $88D
-                              JU    $FF9
-FFA: 00 00 00 00 0C "    ."   DW    $000000000C
-FFB: 00 00 00 00 03 "    3"   DW    $0000000003
-FFC: 00 00 00 00 00 "     "   DW    $0000000000
-FFD: 00 C9 E8 E8 36 " ...F"   JM    $9E8
-                              JU    $836
-FFE: 00 00 01 D7 60 "  1.."   DW    $000001D760
-712: 00 00 00 00 1F           DW    $000000001F
+7BC: CE 48 80 48 06           BRSK  1           ; Turn the bit into SP or '1'.
+                              BRS   7
+7CE: CE 70 00 F7 A9           OAO               ; Print the character.
+                              JC    $7A9        ; Jump to $7A9 when complete.
+                              JU    $7CE
