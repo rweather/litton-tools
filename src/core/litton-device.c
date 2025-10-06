@@ -282,9 +282,9 @@ static void litton_printer_output
                 putc(ch, stdout);
                 ++(device->print_position);
             } else if (ch == -2) {
-                /* Multi-character string */
-                fputs(string_form, stdout);
-                device->print_position += strlen(string_form);
+                /* Multi-character string - don't print function keys */
+                /*fputs(string_form, stdout);
+                device->print_position += strlen(string_form);*/
             }
         }
     } else if (device->charset == LITTON_CHARSET_HEX) {

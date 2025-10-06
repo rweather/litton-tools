@@ -756,8 +756,8 @@ static void printer_output
                 /* Single character */
                 print_ascii(ch);
             } else if (ch == -2) {
-                /* Multi-character string */
-                print_string(string_form);
+                /* Multi-character string - don't print function keys */
+                /*print_string(string_form);*/
             }
         }
     } else if (state->printer_charset == LITTON_CHARSET_HEX) {
