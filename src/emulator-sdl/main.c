@@ -58,6 +58,9 @@ static void usage(const char *progname)
 #define LITTON_BUTTON_TAPE_IN   0x40000000U
 #define LITTON_BUTTON_TAPE_OUT  0x80000000U
 
+/* Number of frames to leave a tape light highlighted when active requests */
+#define HIGHLIGHT_BUTTON_FRAMES 60
+
 /**
  * @brief State information for managing the SDL user interface.
  */
@@ -152,6 +155,12 @@ typedef struct
 
     /** Number of characters in the keyboard input buffer */
     int keyboard_count;
+
+    /** If this is non-zero, the program wants paper tape input */
+    unsigned need_paper_tape_input;
+
+    /** If this is non-zero, the program wants paper tape output */
+    unsigned need_paper_tape_output;
 
 } litton_ui_state_t;
 
@@ -499,6 +508,17 @@ static void draw_screen(void)
     case LITTON_BUTTON_TAPE_OUT:
         draw_pressed_button(BUTTON_TAPE_OUT_X, BUTTON_TAPE_OUT_Y);
         break;
+    }
+
+    /* Highlight the tape buttons if there is an active request for
+     * tape input or output but no tape is currently mounted. */
+    if (ui.need_paper_tape_input > 0) {
+        draw_pressed_button(BUTTON_TAPE_IN_X, BUTTON_TAPE_IN_Y);
+        --(ui.need_paper_tape_input);
+    }
+    if (ui.need_paper_tape_output > 0) {
+        draw_pressed_button(BUTTON_TAPE_OUT_X, BUTTON_TAPE_OUT_Y);
+        --(ui.need_paper_tape_output);
     }
 
     /* Draw the text for the printer output */
@@ -943,22 +963,103 @@ static int paper_tape_input
     (litton_state_t *state, litton_device_t *device,
      uint8_t *value, litton_parity_t parity)
 {
-    // TODO
+    char buffer[16];
+    int ch, lastch;
+    size_t posn, len;
+    (void)state;
+
+    /* Bail out if the paper tape input is not mounted */
+    if (device->file == NULL) {
+        /* Highlight the tape input button */
+        ui.need_paper_tape_input = HIGHLIGHT_BUTTON_FRAMES;
+        return 0;
+    }
+
+    /* Read the next character from the tape and decode it */
+    ch = getc(device->file);
+    if (ch != EOF) {
+        if (device->charset == LITTON_CHARSET_EBS1231) {
+            buffer[0] = (char)ch;
+            len = 1;
+            if (ch == '[') {
+                /* Special function key sequence [x] */
+                lastch = ']';
+            } else if (ch == '{') {
+                /* Printer position sequence {n} */
+                lastch = '}';
+            } else {
+                /* Singleton character */
+                lastch = 0;
+            }
+            while (lastch && len < sizeof(buffer)) {
+                ch = getc(device->file);
+                if (ch == EOF || ch == lastch) {
+                    break;
+                }
+                buffer[len++] = (char)ch;
+            }
+            posn = 0;
+            ch = litton_char_to_charset
+                (buffer, &posn, len, LITTON_CHARSET_EBS1231);
+            if (ch >= 0) {
+                *value = litton_add_parity(ch, parity);
+                return 1;
+            }
+            return 0;
+        } else {
+            /* Plain ASCII tape */
+            if (device->charset == LITTON_CHARSET_UASCII) {
+                if (ch >= 'a' && ch <= 'z') {
+                    ch = ch - 'a' + 'A';
+                }
+            }
+            *value = litton_add_parity(ch, parity);
+            return 1;
+        }
+    }
+
+    /* File is exhausted, so close it */
+    fclose(device->file);
+    device->file = 0;
     return 0;
 }
 
 static int paper_tape_output_is_busy
     (litton_state_t *state, litton_device_t *device)
 {
-    /* If we don't have a tape file mounted, then the tape punch is busy */
+    /* If we don't have a tape file mounted, then the tape punch is busy.
+     * Highlight the tape output button to let the user know. */
     (void)state;
-    return device->file == NULL;
+    if (device->file != NULL) {
+        /* Paper tape output is not busy */
+        return 0;
+    } else {
+        /* No paper tape output file mounted */
+        ui.need_paper_tape_output = HIGHLIGHT_BUTTON_FRAMES;
+        return 1;
+    }
 }
 
 static void paper_tape_output
     (litton_state_t *state, litton_device_t *device,
      uint8_t value, litton_parity_t parity)
 {
+    int ch;
+    const char *string_form;
+    if (device->file != 0) {
+        /* Convert the value into the right character set and output it */
+        value = litton_remove_parity(value, parity);
+        ch = litton_char_from_charset(value, device->charset, &string_form);
+        if (ch == -2) {
+            fputs(string_form, device->file);
+        } else {
+            putc(ch, device->file);
+        }
+        fflush(device->file);
+
+        /* Accelerate the machine when writing to tape files */
+        litton_accelerate(state);
+    }
 }
 
 static void create_devices(void)
@@ -1041,12 +1142,12 @@ static char *ask_for_filename(const char *cmdline)
 static void handle_other_button(uint32_t button)
 {
     char *filename = 0;
-    if (!litton_is_halted(&machine)) {
-        /* Machine must be halted for this */
-        return;
-    }
     switch (button) {
     case LITTON_BUTTON_DRUM_LOAD:
+        if (!litton_is_halted(&machine)) {
+            /* Machine must be halted for this */
+            break;;
+        }
         filename = ask_for_filename(DRUM_LOAD_CMD);
         if (filename) {
             SDL_LockMutex(ui.mutex);
@@ -1065,6 +1166,10 @@ static void handle_other_button(uint32_t button)
         break;
 
     case LITTON_BUTTON_DRUM_SAVE:
+        if (!litton_is_halted(&machine)) {
+            /* Machine must be halted for this */
+            break;;
+        }
         filename = ask_for_filename(DRUM_SAVE_CMD);
         if (filename) {
             SDL_LockMutex(ui.mutex);
@@ -1082,12 +1187,22 @@ static void handle_other_button(uint32_t button)
 
     case LITTON_BUTTON_TAPE_IN:
         filename = ask_for_filename(TAPE_IN_CMD);
-        // TODO
+        SDL_LockMutex(ui.mutex);
+        litton_close_input_tape(&machine);
+        if (filename) {
+            litton_set_input_tape(&machine, filename);
+        }
+        SDL_UnlockMutex(ui.mutex);
         break;
 
     case LITTON_BUTTON_TAPE_OUT:
         filename = ask_for_filename(TAPE_OUT_CMD);
-        // TODO
+        SDL_LockMutex(ui.mutex);
+        litton_close_output_tape(&machine);
+        if (filename) {
+            litton_set_output_tape(&machine, filename, 0);
+        }
+        SDL_UnlockMutex(ui.mutex);
         break;
     }
     if (filename) {

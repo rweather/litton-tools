@@ -105,6 +105,22 @@ int litton_is_output_busy(litton_state_t *state)
 /** Maximum acceleration counter */
 #define LITTON_ACCEL_MAX 10000
 
+void litton_accelerate(litton_state_t *state)
+{
+    if (state->acceleration_counter < LITTON_ACCEL_MAX) {
+        state->acceleration_counter += LITTON_ACCEL_COUNT;
+    }
+}
+
+void litton_accelerate_more(litton_state_t *state)
+{
+    if (state->acceleration_counter != 0 &&
+            state->acceleration_counter < LITTON_ACCEL_MAX) {
+        /* Stay in accelerated mode for a little longer */
+        state->acceleration_counter += LITTON_ACCEL_COUNT;
+    }
+}
+
 void litton_output_to_device
     (litton_state_t *state, uint8_t value, litton_parity_t parity)
 {
@@ -114,11 +130,7 @@ void litton_output_to_device
             if (!(device->is_busy) || !((*device->is_busy))(state, device)) {
                 if (device->output != 0) {
                     (*(device->output))(state, device, value, parity);
-                    if (state->acceleration_counter != 0 &&
-                            state->acceleration_counter < LITTON_ACCEL_MAX) {
-                        /* Stay in accelerated mode for a little longer */
-                        state->acceleration_counter += LITTON_ACCEL_COUNT;
-                    }
+                    litton_accelerate_more(state);
                 }
             }
         }
@@ -136,9 +148,8 @@ int litton_input_from_device
                 if ((*(device->input))(state, device, value, parity)) {
                     /* Allow faster processing of pasted text if we
                      * got an input character from the paper tape. */
-                    if (device->id == LITTON_DEVICE_READER &&
-                            state->acceleration_counter < LITTON_ACCEL_MAX) {
-                        state->acceleration_counter += LITTON_ACCEL_COUNT;
+                    if (device->id == LITTON_DEVICE_READER) {
+                        litton_accelerate(state);
                     }
                     return 1;
                 }

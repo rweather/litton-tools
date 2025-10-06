@@ -869,6 +869,20 @@ int litton_save_drum(litton_state_t *state, const char *filename);
  */
 void litton_clear_memory(litton_state_t *state);
 
+/**
+ * @brief Accelerate the runtime when performing intensive I/O.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_accelerate(litton_state_t *state);
+
+/**
+ * @brief Accelerate the runtime more if already accelerating.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_accelerate_more(litton_state_t *state);
+
 /*----------------------------------------------------------------------*/
 
 /*
