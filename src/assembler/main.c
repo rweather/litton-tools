@@ -35,6 +35,8 @@ static void usage(const char *progname)
     fprintf(stderr, "    -t TITLE\n");
     fprintf(stderr, "        Set the title to write to the output drum file.\n");
     fprintf(stderr, "        Overrides the value set by the title directive.\n");
+    fprintf(stderr, "    -T\n");
+    fprintf(stderr, "        Write the output file as a tape image, not a drum image.\n");
 }
 
 int main(int argc, char *argv[])
@@ -43,17 +45,20 @@ int main(int argc, char *argv[])
     const char *output_file = "a.drum";
     const char *source_file;
     const char *title = 0;
+    int tape_image = 0;
     int exit_status = 0;
     int opt;
     FILE *file;
     litton_assem_t assem;
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "o:t:")) != -1) {
+    while ((opt = getopt(argc, argv, "o:t:T")) != -1) {
         if (opt == 'o') {
             output_file = optarg;
         } else if (opt == 't') {
             title = optarg;
+        } else if (opt == 'T') {
+            tape_image = 1;
         } else {
             usage(progname);
             return 1;
@@ -84,8 +89,14 @@ int main(int argc, char *argv[])
 
     /* If there were no errors so far, output the drum image */
     if (assem.tokeniser.num_errors == 0) {
-        if (!litton_drum_image_save(&assem.drum, output_file, title)) {
-            exit_status = 1;
+        if (tape_image) {
+            if (!litton_drum_image_save_tape(&assem.drum, output_file)) {
+                exit_status = 1;
+            }
+        } else {
+            if (!litton_drum_image_save(&assem.drum, output_file, title)) {
+                exit_status = 1;
+            }
         }
     }
 

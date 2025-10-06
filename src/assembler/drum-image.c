@@ -241,6 +241,48 @@ int litton_drum_image_save
     return 1;
 }
 
+int litton_drum_image_save_tape
+    (litton_drum_image_t *drum, const char *filename)
+{
+    litton_drum_loc_t addr;
+    int need_address = 1;
+    int need_slash = 0;
+    int need_crlf = 0;
+    FILE *file;
+    if ((file = fopen(filename, "wb")) == NULL) {
+        perror(filename);
+        return 0;
+    }
+    for (addr = 0; addr < drum->drum_size; ++addr) {
+        if (drum->used[addr]) {
+            /* Used address */
+            if (need_slash) {
+                putc('/', file);
+                need_slash = 0;
+            }
+            if (need_crlf) {
+                putc('\r', file);
+                putc('\n', file);
+                need_crlf = 0;
+            }
+            if (need_address) {
+                fprintf(file, "%03X#", addr);
+                need_address = 0;
+            }
+            fprintf(file, "%010LX", (unsigned long long)(drum->drum[addr]));
+            need_slash = 1;
+        } else {
+            /* Unused address */
+            need_crlf = need_slash;
+            need_address = 1;
+            need_slash = 0;
+        }
+    }
+    putc(',', file);
+    fclose(file);
+    return 1;
+}
+
 void litton_drum_image_set_title
     (litton_drum_image_t *drum, const char *title, size_t len)
 {

@@ -157,6 +157,17 @@ int litton_drum_image_save
     (litton_drum_image_t *drum, const char *filename, const char *title);
 
 /**
+ * @brief Saves the drum image to file as a Litton tape image.
+ *
+ * @param[in,out] drum The drum image.
+ * @param[in] filename Name of the file to save to.
+ *
+ * @return Non-zero if the drum image was saved, zero on error.
+ */
+int litton_drum_image_save_tape
+    (litton_drum_image_t *drum, const char *filename);
+
+/**
  * @brief Sets the title of the drum image.
  *
  * @param[in,out] drum The drum image.
