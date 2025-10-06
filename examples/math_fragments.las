@@ -8,7 +8,7 @@
 ;
     title "Math Fragments"
     printer $41,"EBS1231"
-    org $300
+    org $800
 
 ;
 ; 80-bit addition of S2/S3 to S0/S1.

@@ -1,7 +1,7 @@
     title "Hello, World!"
     printer $41,"EBS1231"
-    drumsize 2048
-    org $300
+    drumsize 4096
+    org $800
 start:
     isw printer         ; Select the printer device for output.
     oiw "H"             ; Output the characters of the message.

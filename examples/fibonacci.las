@@ -3,8 +3,8 @@
 ;
     title "Fibonacci"
     printer $41,"EBS1231"
-    drumsize 2048
-    org $700
+    drumsize 4096
+    org $800
 start:
 ;
     isw printer     ; Select the printer output device

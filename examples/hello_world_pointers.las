@@ -6,8 +6,8 @@
 ;
     title "Hello World with Pointers"
     printer $41,"EBS1231"
-    drumsize 2048
-    org $300
+    drumsize 4096
+    org $800
 start:
     isw printer
 ;
@@ -54,7 +54,7 @@ message_start:
 ; adding the pointer value to the instruction and then executed
 ; by jumping to the instruction with "JA".
 ;
-    org $409            ; Align so that the top instruction becomes a no-op.
+    org $909            ; Align so that the top instruction becomes a no-op.
 load_pointer:
     ca 0                ; Load from the adjusted pointer.
     ju loaded           ; Jump back to the main code.
