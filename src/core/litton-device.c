@@ -423,6 +423,7 @@ static int litton_keyboard_input
             if (tcgetattr(0, &(keyboard->tio)) >= 0) {
                 struct termios raw = keyboard->tio;
                 cfmakeraw(&raw);
+                raw.c_lflag |= ISIG; /* Reactivate CTRL-C handling */
                 if (tcsetattr(0, TCSANOW, &raw) >= 0) {
                     keyboard->initialized = 1;
                 }
