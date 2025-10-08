@@ -924,8 +924,56 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $3E2 - Opcode 012 - DCLR - Clear Distribution Registers.
 ;
+; This builds a small program in the scratchpad loop to clear the 2000
+; distribution registers between $800 and $FCF to all zeroes.
+;
+; Technically addresses $F00 to $FCF should be on read-only tracks.  Huh?
+;
+;      CL
+;   3: ST $DCC
+;      ST $BE8
+;   4: ST $800
+;      ST $A04
+;   5: XC 3
+;      AD 7
+;      XC 3
+;   6: XC 4
+;      TE 0
+;      JC $3F7
+;   1: AD 7
+;      XC 4
+;      CL
+;      JU 3
+;   0: ST $A03
+;      ST $C07
+;      JU 5
+;   7: DW $0000010001
+;
 3E2: 00 C6 65 E2 35           JM    $665
-                              JU    $235
+235: E7 84 39 B0 00           CA    $439
+                              ST    0
+2E7: B4 82 6B B0 01           CA    $26B
+                              ST    1
+2B4: 37 82 EB B0 03           CA    $2EB
+                              ST    3
+237: B7 82 EE B0 04           CA    $2EE
+                              ST    4
+2B7: E9 84 BB B0 05           CA    $4BB
+                              ST    5
+2E9: 6C 82 ED B0 06           CA    $2ED
+                              ST    6
+26C: EC 82 F0 B0 07           CA    $2F0
+                              ST    7
+2EC: 00 09 E0 03 00           CL   
+                              JU    3
+; TODO: Execution continues with $3F7.
+439: 05 BA 03 BC 07           DW    $05BA03BC07
+26B: 03 90 07 24 09           DW    $0390072409
+2EB: 04 BD CC BB E8           DW    $04BDCCBBE8
+2EE: 05 B8 00 BA 04           DW    $05B800BA04
+4BB: 06 23 90 07 23           DW    $0623900723
+2ED: 01 24 30 F3 F7           DW    $012430F3F7
+2F0: 00 00 01 00 01           DW    $0000010001
 ;
 ; $3E3 - Opcode 013 - DIST - Distribute.
 ;
@@ -934,14 +982,14 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $3E4 - Opcode 014 - DGET - Bring the Distribution Register V07 into A.
 ;
-3E4: FC 21 25 C6 70           XC    1
+3E4: FC 21 25 C6 70           XC    1           ; Shift registr A into B.
                               XC    5
-                              JM    $670
-3FC: 00 E4 80 00 00           JU    $480
+                              JM    $670        ; Fetch D[V07] into A.
+3FC: 00 E4 80 00 00           JU    $480        ; Back to main interpreter loop.
 ;
 ; $3E5 - Opcode 015 - DPUT - Store A to the Distribution Register V07.
 ;
-3E5: 00 83 87 E2 03           CA    $387
+3E5: 00 83 87 E2 03           CA    $387        ; Load the value of V07.
                               JU    $203
 ;
 ; $3E6 - Opcode 016 - SCAN - Scan for Non-zero Distribution Register.
@@ -1336,3 +1384,20 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 7CE: CE 70 00 F7 A9           OAO               ; Print the character.
                               JC    $7A9        ; Jump to $7A9 when complete.
                               JU    $7CE
+;
+; $670 - Loads the distribution register with address V07 into A.
+;
+670: 00 B0 03 E2 83           ST    3           ; Put return address in S3.
+283: 8F 83 87 92 0B           CA    $387        ; Get the value of V07.
+                              AD    $20B        ; Is V07 < 2000?
+28F: 3D F4 13 92 B9           JC    $413        ; If not, jump to $413.
+                              AD    $2B9        ; Restore the value of V07.
+23D: 62 40 17 92 5C           BLS   24          ; Set up a memory fetch.
+                              AD    $25C
+262: 00 0D 00 00 00           JA                ; Execute the memory fetch.
+413: 00 07 03 E7 FF           HH    7           ; Halt with error code 7.
+                              HH    3           ; Resuming halts again with 3.
+                              JU    $7FF        ; And then we re-init OPUS.
+20B: FF FF FF F8 30           DW    $FFFFFFF830 ; -2000 as a constant.
+2B9: 00 00 00 07 D0           DW    $00000007D0 ; +2000 as a constant.
+25C: 88 00 21 E0 03 "8 J.3"   DW    $880021E003

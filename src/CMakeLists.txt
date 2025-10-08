@@ -3,6 +3,7 @@ set(CORE_SOURCES
     core/litton-device.c
     core/litton-drum.c
     core/litton-front-panel.c
+    core/litton-hl-opcodes.c
     core/litton-opcodes.c
     core/litton-run.c
     core/litton-state.c
