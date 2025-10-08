@@ -121,6 +121,7 @@ Documentation for the tools in this repository:
 * [Keyboard Mapping for the GUI Emulator](images/keyboard-layout.png)
 * [Litton EBS1231 Character set](doc/character-set.md)
 * [Usage of tracks on the drum](doc/tracks.md)
+* [OPUS program tape format](doc/tape-format.md)
 * [Mapping of Litton part numbers to 74xx series part numbers](doc/Litton-Part-Number-Mapping.ods) (ODS spreadsheet)
 * [Location of Mxxx part designators on the PCB's and in the schematic](doc/Litton-Part-Locator.ods) (ODS spreadsheet)
 
