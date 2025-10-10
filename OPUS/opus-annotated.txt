@@ -142,7 +142,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;   Bit     Meaning
 ;   0       1 for command character, 0 for parsed digit value
 ;   1       ???
-;   2       ???
+;   2       1 for a terminating character like space, CR, P1, II, etc.
 ;   3       0 if the character is valid as a command, 1 if valid as a digit.
 ;   4-9     N, address of the command handler ($680 + N) if bit 0 is 1.
             N, the parsed digit value if bit 0 is 0.
@@ -216,6 +216,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 63D: 00 80 00 45 04     ; Index Left
 63E: D3 94 93 00 00     ; Backspace
 63F: 00 80 00 4C 00     ; Carriage Open or Close
+640: D3 38 E9 00 84     ; Carriage Return
 ;
 ;
 ; $534 and $5BC - Control returns to one of these addresses when a command
@@ -238,7 +239,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; All this seems to do is halt with code 7.  Not sure why this is useful.
 ;
-681: 04 1F C6 5E 05           LA    7
+681: 04 1F C6 5E 05           LA    7           ; CORRUPT!  FIXME!
                               JM    $65E
                               HH    5
 65E: 00 07 07 E6 5E           HH    7
@@ -251,7 +252,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; TODO
 ;
-682: 1E 84 5D D2 1C           CA    $45D
+682: 1E 84 5D D2 1C           CA    $45D        ; CORRUPT!  FIXME!
                               AC    $21C
                               JU    $61E
 ;
@@ -324,9 +325,9 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 5B2: C2 C5 3B F2 C3           JM    $53B        ; Are we in program reg mode?
                               JC    $2C3        ; Yes, jump to $2C3.
 5C2: BD C6 A1 C5 37           JM    $6A1        ; Print the value in $4FD.
-                              JM    $537
-5BD: 00 C6 BF E5 3F           JM    $6BF
-                              JU    $53F
+                              JM    $537        ; Move print head to column 46.
+5BD: 00 C6 BF E5 3F           JM    $6BF        ; Read number into storage reg.
+                              JU    $53F        ; Go back for next word.
 2C3: 00 C2 2A E2 2E           JM    $22A
 22E: A9 C4 0A 84 F8           JM    $40A
                               CA    $4F8
@@ -403,10 +404,21 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $68B - Command handler for S - Store Instructions or Data.
 ;
-; TODO
-;
-68B: 00 C5 76 E2 46           JM    $576
-                              JU    $246
+68B: 00 C5 76 E2 46           JM    $576        ; Prompt for the address.
+246: 48 C5 35 C5 3B           JM    $535        ; Move print head to column 19.
+                              JM    $53B        ; Are we in program reg mode?
+248: 46 F2 CC C6 BF           JC    $2CC        ; Yes, jump to $2CC.
+                              JM    $6BF        ; Read number into storage reg.
+                              JU    $246        ; Go back for the next word.
+2CC: AA 85 8C B4 F5           CA    $58C
+                              ST    $4F5        ; Store 7 to $4F5..$4F8.
+2AA: AD B4 F6 B4 F7           ST    $4F6
+                              ST    $4F7
+2AD: 00 B4 F8 E3 FE           ST    $4F8
+3FE: FE C4 BC F2 46           JM    $4BC
+                              JC    $246
+                              JU    $3FE
+58C: 00 00 00 00 07           DW    $0000000007
 ;
 ; $68C - Command handler for W - Print Registers in a range.
 ;
@@ -624,7 +636,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 57E: 8A 85 82 D7 86           CA    $582        ; Compute the register limit.
                               AC    $786
 58A: 88 B0 03 C5 83           ST    3           ; Set S3 to the register limit.
-                              JM    $583        ; Read decimal or octal number.
+                              JM    $583        ; Read decimal number.
 588: 00 F5 8E E7 0C           JC    $58E
                               JU    $70C        ; Print "ERR" and stop.
 578: 8F 86 7C B0 03           CA    $67C        ; Hexadecimal address mode,
@@ -638,7 +650,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 67C: 00 00 00 0F FF           DW    $0000000FFF
 786: 00 00 00 00 40           DW    $0000000040
 ;
-; $583 - Read decimal or octal number.
+; $583 - Read decimal number.
 ;
 583: 14 21 87 8C 22           XC    1           ; Put return address in S1.
                               CA    $78C
@@ -654,6 +666,15 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 56D: 00 E7 0C 00 00           JU    $70C
 56A: 00 08 E5 71 00           AK   
                               JU    $571
+;
+; $584 - Read octal number.
+;
+584: 93 21 85 8C 20           XC    1           ; Put return address in S1.
+                              CA    $58C        ; Set S0 to 7.
+                              XC    0
+593: 40 C5 17 40 02           JM    $517        ; Read and parse a digit.
+                              BLS   3           ; Shift up by 3 bits.
+                              JU    $540        ; Add it to the working value.
 ;
 ; $585 - Read hexadecimal number.
 ;
@@ -769,9 +790,9 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               RK   
                               JA            ; Return from the subroutine.
 ;
-; $537 - Subroutine that moves the print head to column 49.
+; $537 - Subroutine that moves the print head to column 46.
 ;
-537: 37 78 4F F7 A0           OI    $4F     ; Output $4F = "move to column 49".
+537: 37 78 4F F7 A0           OI    $4F     ; Output $4F = "move to column 46".
                               JC    $7A0
                               JU    $537
 ;
@@ -873,14 +894,67 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
     ; TODO
 ;
-; $3DC - Opcode 00C - ???
+; $3DC - Opcode 00C - ??? - Divide A by 10 and put the quotient in A
+; and the remainder in B.
 ;
-    ; TODO
+3DC: 00 80 01 E5 65           CA    1           ; Get the high-level A register.
+565: 45 12 F6 6C 0A           TH                ; Is it negative?
+                              JC    $66C        ; Yes, jump to $66C.
+545: D8 B0 03 68 00           ST    3           ; Save abs(A) in S3.
+                              DRS   1           ; Divide low-level A by 10.
+5D8: E5 B0 05 60 00           ST    5           ; Store the result in B.
+                              DLS   1           ; Multiply low-level A by 10.
+5E5: C5 0B 90 03 25           CM                ; Subtract low-level A from S3.
+                              AD    3
+                              XC    5           ; Put remainder in B
+5C5: 59 21 12 F3 D9           XC    1           ; and the quotient in A.
+                              TH                ; If the original number was
+                              JC    $3D9        ; negative, negate the final A.
+559: 00 E4 80 00 00           JU    $480        ; Back to main interpreter loop.
+66C: 00 0B E5 45 00           CM                ; Negate the value.
+                              JU    $545        ; Jump back.
 ;
 ; $3DD - Opcode 00D - ???
 ;
-3DD: 00 83 83 E2 27           CA    $383
-                              JU    $227
+3DD: 00 83 83 E2 27           CA    $383        ; Load V03 into A.
+227: 3F 25 82 30 23           XC    5
+                              CA    $230
+                              XC    3
+23F: 4C 84 C3 B0 00           CA    $4C3
+                              ST    0
+24C: 91 83 87 92 0B           CA    $387
+                              AD    $20B
+291: BD F4 6F 92 B9           JC    $46F
+                              AD    $2B9
+2BD: 53 90 00 B0 07           AD    0
+                              ST    7
+                              JU    $253
+253: E2 3B F4 6F 0A           TG    3
+                              JC    $46F
+2E2: F6 C0 07 B0 01           JM    7
+                              ST    1
+2F6: 8B 1D F4 03 20           LA    5
+                              JC    $403
+                              XC    0
+28B: 1C 0B 90 07 0A           CM   
+                              AD    7
+21C: 96 B3 87 25 10           ST    $387        ; Store to V07.
+                              XC    5
+                              SK
+296: A2 08 F4 80 0A           AK   
+                              JC    $480
+2A2: 00 E2 F4 00 00           JU    $2F4
+403: 16 10 27 08 0A           SK   
+                              XC    7
+                              AK   
+416: 00 B0 07 E2 53           ST    7
+                              JU    $253
+46F: 80 22 40 09 22           XC    2
+                              BLS   10
+                              XC    2
+                              JU    $480        ; Back to main interpreter loop.
+230: 04 B0 04 8F D0           DW    $04B0048FD0
+4C3: 04 B0 04 88 00           DW    $04B0048800
 ;
 ; $3DE - Opcode 00E - SCI - Single character input.
 ;
@@ -927,8 +1001,6 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ; This builds a small program in the scratchpad loop to clear the 2000
 ; distribution registers between $800 and $FCF to all zeroes.
 ;
-; Technically addresses $F00 to $FCF should be on read-only tracks.  Huh?
-;
 ;      CL
 ;   3: ST $DCC
 ;      ST $BE8
@@ -966,7 +1038,12 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               ST    7
 2EC: 00 09 E0 03 00           CL   
                               JU    3
-; TODO: Execution continues with $3F7.
+3F7: FB 84 EB 26 0A           CA    $4EB
+                              XC    6
+3FB: FC 84 FA 22 0A           CA    $4FA
+                              XC    2
+                              JU    $3FC
+;
 439: 05 BA 03 BC 07           DW    $05BA03BC07
 26B: 03 90 07 24 09           DW    $0390072409
 2EB: 04 BD CC BB E8           DW    $04BDCCBBE8
@@ -1401,3 +1478,292 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 20B: FF FF FF F8 30           DW    $FFFFFFF830 ; -2000 as a constant.
 2B9: 00 00 00 07 D0           DW    $00000007D0 ; +2000 as a constant.
 25C: 88 00 21 E0 03 "8 J.3"   DW    $880021E003
+;
+; $6BF - Read a number and write it to the next storage register.
+;
+6BF: 6A B4 EC 84 E6           ST    $4EC        ; Store return address in $4EC.
+                              CA    $4E6        ; Decimal or octal mode?
+66A: F5 12 F6 F2 0A           TH   
+                              JC    $6F2        ; Jump to $6F2 if decimal.
+6F5: A7 48 01 F7 A3           BRS   2           ; Octal or hexadecimal mode?
+                              JC    $7A3        ; Jump to $7A3 if octal.
+6A7: 00 C5 85 E7 A7           JM    $585        ; Read hexadecimal number.
+7A7: 33 F7 0C 11 0A           JC    $70C        ; Bail out on error.
+                              TZ   
+733: B4 F7 B4 C5 89           JC    $7B4
+                              JM    $589
+                              JU    $7B4
+6F2: 00 C5 83 E7 A7           JM    $583        ; Read decimal number.
+                              JU    $7A7
+7A3: 00 C5 84 E7 A7           JM    $584        ; Read octal number.
+                              JU    $7A7
+7B4: 28 84 EF 48 07           CA    $4EF
+                              BRS   8
+728: B6 F5 BC 48 00           JC    $5BC
+                              BRS   1
+7B6: 00 F7 0C E6 BD           JC    $70C
+6BD: 7A C7 8A 84 F4           JM    $78A
+                              CA    $4F4
+67A: FA 10 08 B4 F4           SK   
+                              AK   
+                              ST    $4F4
+6FA: A8 C5 28 C6 99           JM    $528
+                              JM    $699
+6A8: 00 E4 EC 00 00           JU    $4EC        ; Return from the subroutine.
+;
+; $4BC - ???
+;
+4BC: 8D B4 EC C2 70           ST    $4EC        ; Store return address in $4EC.
+                              JM    $270
+48D: 00 F4 91 E4 15           JC    $491
+415: 91 C4 25 B4 F8           JM    $425
+                              ST    $4F8
+                              JU    $491
+491: 8E 84 EF 48 05           CA    $4EF
+                              BRS   6
+48E: 00 F4 92 E4 95           JC    $492
+495: 8F 84 F2 0B 0A           CA    $4F2
+                              CM   
+48F: 17 F4 17 C2 29           JC    $417
+                              JM    $229
+                              JU    $417
+417: 00 C7 8A E7 B4           JM    $78A
+7B4: 28 84 EF 48 07           CA    $4EF
+                              BRS   8
+728: B6 F5 BC 48 00           JC    $5BC
+                              BRS   1
+7B6: 00 F7 0C E6 BD           JC    $70C
+6BD: 7A C7 8A 84 F4           JM    $78A
+                              CA    $4F4
+67A: FA 10 08 B4 F4           SK   
+                              AK   
+                              ST    $4F4
+6FA: A8 C5 28 C6 99           JM    $528
+                              JM    $699
+6A8: 00 E4 EC 00 00           JU    $4EC        ; Return from the subroutine.
+492: 26 24 11 F4 95           XC    4
+                              TZ   
+                              JC    $495
+426: 90 94 61 24 0A           AD    $461
+                              XC    4
+490: 00 C5 36 E4 EC           JM    $536
+                              JU    $4EC        ; Return from the subroutine.
+5BC: 00 C7 8A E7 6A           JM    $78A
+                              JU    $76A
+;
+; $270 - Read in a mnemonic opcode.
+;
+270: AE B4 F3 09 10           ST    $4F3        ; Store return address in $4F3.
+                              CL   
+                              SK   
+2AE: C8 40 84 B0 00           BLSK  5
+                              ST    0           ; Set S0 to 16.
+2C8: C8 5C 00 F2 50           CIOP              ; Read a character from input.
+                              JC    $250
+                              JU    $2C8
+250: B0 B0 01 40 1F           ST    1           ; Store character in S1.
+                              BLS   32
+2B0: B0 70 00 F2 B8           OAO               ; Each the character.
+                              JC    $2B8
+                              JU    $2B0
+2B8: DD 85 4E 90 01           CA    $54E        ; Check if char code >= $41.
+                              AD    1
+2DD: 69 F7 0C 94 E4           JC    $70C        ; Print "ERR" and exit if it is.
+                              AD    $4E4        ; Read the parse rule at
+269: B1 B0 06 C0 06           ST    6           ; $600 + char into A.
+                              JM    6
+2B1: 32 B4 EF 48 00           ST    $4EF        ; Store the parse rule to $4EF.
+                              BRS   1           ; Is bit 0 set to 1?
+232: CF F2 B6 48 01           JC    $2B6        ; If yes, a valid opcode letter.
+                              BRS   2           ; Is bit 3 set to 1?
+2CF: 00 F4 D3 E7 0C           JC    $4D3        ; If yes, we have a terminator.
+                              JU    $70C        ; Print "ERR" and exit.
+2B6: E6 20 40 05 0A           XC    0           ; Shift S0 up by 6 bits.
+                              BLS   6
+2E6: B2 F7 0C 90 01           JC    $70C        ; Stop if opcode is too long.
+                              AD    1           ; Add the current char to S0.
+2B2: 00 B0 00 E2 C8           ST    0
+                              JU    $2C8        ; Go back for the next char.
+;
+; Once we get here, we have the characters of the typed opcode in S0.
+; Up to 5 characters may be present in the opcode.
+;
+4D3: 97 B0 02 80 00           ST    2           ; Save the parse rule in S2.
+                              CA    0
+497: 97 40 05 F4 A6           BLS   6           ; Pad opcode in S0 with spaces
+                              JC    $4A6        ; to left-align it in the word.
+                              JU    $497
+4A6: 3B 40 03 11 20           BLS   4
+                              TZ                ; Is the opcode all spaces?
+                              XC    0
+43B: 98 F4 F3 84 E8           JC    $4F3        ; If yes, return from subr.
+                              CA    $4E8        ; Was the OPUS command S or Q?
+498: 27 94 1C F4 20           AD    $41C
+                              JC    $420        ; Jump to $420 if it was Q.
+427: 27 78 C8 F4 2F           OI    $C8         ; Move print head to column 25.
+                              JC    $42F
+                              JU    $427
+42F: A0 C2 12 B0 03           JM    $212
+                              ST    3
+4A0: B4 40 08 F4 B0           BLS   9
+                              JC    $4B0
+4B4: CD 22 48 05 22           XC    2
+                              BRS   6
+                              XC    2
+4CD: 00 F4 D1 E7 0C           JC    $4D1
+                              JU    $70C
+420: 20 78 CE F4 2F           OI    $CE         ; Move print head to column 43.
+                              JC    $42F
+                              JU    $420
+4B0: 47 80 02 48 05           CA    2
+                              BRS   6
+447: 00 F4 CB E4 CF           JC    $4CB
+4CF: A7 09 25 82 23           CL   
+                              XC    5
+                              CA    $223
+4A7: 00 1A E4 4C 00           LA    2
+44C: 4A F7 0C 84 C6           JC    $70C
+                              CA    $4C6
+44A: 9C 2B 48 09 0A           XT    3
+                              BRS   10
+49C: 35 90 05 25 09           AD    5
+                              XC    5
+                              CL   
+435: 00 B4 F2 E4 F3           ST    $4F2
+                              JU    $4F3        ; Return from the subroutine.
+4CB: 9D C5 83 27 0B           JM    $583
+                              XC    7
+                              CM   
+49D: 9E F7 0C 84 EF           JC    $70C
+                              CA    $4EF
+49E: CF 48 02 13 22           BRS   3
+                              RK   
+                              XC    2
+                              JU    $4CF
+4D1: DC 40 00 F7 59           BLS   1
+                              JC    $759
+4DC: 99 40 00 F6 64           BLS   1
+                              JC    $664
+499: 9B C5 84 87 86           JM    $584
+                              CA    $786
+49B: 31 25 F7 0C 3D           XC    5
+                              JC    $70C
+                              TG    5
+431: 45 25 27 F7 0C           XC    5
+                              XC    7
+                              JC    $70C
+445: 00 11 E4 4C 00           TZ   
+                              JU    $44C
+664: E3 C5 85 87 09           JM    $585
+                              CA    $709
+6E3: 00 E4 9B 00 00           JU    $49B
+70C: 37 86 AA B0 00           CA    $6AA
+                              ST    0
+737: F5 B4 ED 7E 41           ST    $4ED
+                              IS    $41
+7F5: 00 C6 D4 E7 7B           JM    $6D4
+77B: 87 7E C0 7E 49           IS    $C0
+                              IS    $49
+787: 6C 87 10 B4 E7           CA    $710
+                              ST    $4E7
+76C: 88 87 F0 B4 FF           CA    $7F0
+                              ST    $4FF
+788: 14 C7 8A 09 10           JM    $78A
+                              CL   
+                              SK   
+714: 72 08 B4 ED 0A           AK   
+                              ST    $4ED
+772: 00 87 F6 E7 7A           CA    $7F6
+77A: 00 B4 E6 E7 6A           ST    $4E6
+76A: 1D 7E 41 48 A7           IS    $41
+                              BRSK  40
+71D: 29 40 01 F7 1D           BLS   2
+                              JC    $71D
+729: DC 7E 49 48 A7           IS    $49
+                              BRSK  40
+7DC: 68 40 01 F7 DC           BLS   2
+                              JC    $7DC
+768: 6A 5C 00 F5 F0           CIOP 
+                              JC    $5F0
+                              JU    $76A
+5F0: 7B 12 F7 0C 0A           TH   
+                              JC    $70C
+57B: 1E 40 17 B0 02           BLS   24
+                              ST    2
+51E: ED 40 07 B4 E8           BLS   8
+                              ST    $4E8
+5ED: ED 70 00 F5 75           OAO  
+                              JC    $575
+                              JU    $5ED
+575: 96 48 89 1A 22           BRSK  10
+                              LA    2
+                              XC    2
+596: 00 F5 9A E7 6A           JC    $59A
+                              JU    $76A
+59A: 00 95 9E 0D 00           AD    $59E
+                              JA
+759: E4 40 00 F7 61           BLS   1
+                              JC    $761
+7E4: 6F 40 00 F7 EC           BLS   1
+                              JC    $7EC
+76F: C3 C5 83 F7 0C           JM    $583
+                              JC    $70C
+7C3: D0 87 C7 2B 0A           CA    $7C7
+                              XT    3
+7D0: 00 48 13 E4 9B           BRS   20
+                              JU    $49B
+761: C8 C5 83 F7 0C           JM    $583
+                              JC    $70C
+7C8: 58 80 05 40 00           CA    5
+                              BLS   1
+758: E9 90 05 B0 05           AD    5
+                              ST    5
+7E9: 49 60 00 90 05           DLS   1
+                              AD    5
+749: 60 97 4D B0 00           AD    $74D
+                              ST    0
+760: C9 68 01 B0 05           DRS   2
+                              ST    5
+7C9: D8 60 01 0B 0A           DLS   2
+                              CM   
+7D8: EE 90 00 90 05           AD    0
+                              AD    5
+7EE: CB 92 73 11 0A           AD    $273
+                              TZ   
+7CB: 00 F7 C3 E7 0C           JC    $7C3
+                              JU    $70C
+7EC: C4 C5 83 84 A2           JM    $583
+                              CA    $4A2
+7C4: 00 E4 9B 00 00           JU    $49B
+;
+41C: D9 00 00 00 00           DW    $D900000000
+4E4: 06 26 0A 86 41           DW    $06260A8641
+;
+; $212 - ???
+;
+212: 7B B4 F0 87 F7           ST    $4F0        ; Store return address in $4F0.
+                              CA    $7F7        ; Set S1 to -1024.
+27B: 92 21 82 8A 0A           XC    1
+                              CA    $28A
+292: 00 94 96 0D 00           AD    $496
+                              JA                ; XC 3, read $600, jump to $40C.
+40C: 1D B0 05 19 0A           ST    5
+                              LA    1
+41D: AE F7 0C 30 23           JC    $70C        ; Bail out on error.
+                              TE    0
+                              XC    3
+4AE: 00 F4 32 E2 92           JC    $432
+                              JU    $292
+432: 46 23 84 3E 1B           XC    3
+                              CA    $43E
+                              LA    3
+446: 5A 39 D4 D4 0A           TG    1
+                              AC    $4D4
+45A: 00 94 DE 0D 00           AD    $4DE
+                              JA
+28A: 23 85 FE E4 0C           DW    $2385FEE40C
+43E: 00 FF FF 00 00           DW    $00FFFF0000
+496: 00 00 02 00 00           DW    $0000020000
+4D4: FF FF FE 00 00           DW    $FFFFFE0000
+4DE: 0A 00 01 E4 F0           DW    $0A0001E4F0
+7F7: FF FF FF FC 00           DW    $FFFFFFFC00
