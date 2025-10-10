@@ -1,8 +1,8 @@
 ;
 ; Mandelbrot implementation for the Litton computer in low-level machine code.
 ;
-; This implementation uses 32-bit fixed-point values with 6 bits before the
-; decimal point and 26 bits after the decimal point.
+; This implementation uses 16-bit fixed-point values with 6 bits before the
+; decimal point and 10 bits after the decimal point.
 ;
 ; Implementation ideas originally from:
 ; https://github.com/ttsiodras/Blue_Pill_Mandelbrot/blob/master/BluePill_TFT16K_Mandelbrot.ino
@@ -73,13 +73,13 @@ start2:
     st y
 
 ;
-; Start processing the next point.  Set r = i = 0, k = 32.
+; Start processing the next point.  Set r = i = 0, k = max_iterations.
 ;
 next_point:
     cl
     st r
     st i
-    ca const_32
+    ca const_max_iterations
     xc 5                ; k is in S5.
 
 ;
@@ -192,10 +192,9 @@ finished:
 ;
 square:
     xc 7                ; Put the return address in S7.
-    ca const_neg_32
+    ca const_neg_16
     st 4                ; S4 is the loop counter, increments up to zero.
     cl
-    st 1                ; Zero S1.
     xc 0                ; Load S0 into A and zero S0.
     th                  ; Get the absolute value of the argument.
     jc square_neg
@@ -203,13 +202,12 @@ square:
 square_neg:
     cm
 square_pos:
-    st 2
-    bls 8               ; Shift the MSB of A up by 8 bits.
+    st 2                ; Store the multiplicand into S2.
+    bls 24              ; Shift the MSB of the multiplier up by 24 bits.
+    xc 1                ; Put the multiplier in the high bits of S1.
 square_loop:
     bld 1               ; Shift the answer in S0/S1 up by 1 bit.
-    bls 1               ; Is the high bit of A set?
-    st 3                ; Save A in S3.
-    jc square_add       ; If the high bit is set, we need to add S2 to S0/S1.
+    jc square_add       ; If the high bit was set, we need to add S2 to S0/S1.
 square_next:
     ca 4                ; Increment the loop counter.
     sk
@@ -217,56 +215,57 @@ square_next:
     st 4
     tz                  ; Bail out if the loop counter is now zero.
     jc square_done
-    ca 3                ; Recover A from S3.
     ju square_loop
 square_add:
     ca 2                ; Add S2 to S0/S1.
     ad 0
     st 0
-    ca 1                ; Deal with overflow into the high word S1.
+    jc square_add_carry
+    ju square_next
+square_add_carry:
+    ca 1                ; Deal with the carry into the high word S1.
     ak
     st 1
     ju square_next
 square_done:
 ;
 ; Shift S0/S1 down to reposition the decimal point.  We lose a bit due to
-; the sign bit, so we need to shift down by 25 bits, not 26.
+; the sign bit, so we need to shift down by 9 bits, not 10.
 ;
-    brd 25
+    brd 9
     xc 0                ; Shift the result into A.
     ju 7                ; Return from the subroutine.
 
 ;
 ; Constants.
 ;
-const_32:
-    dw 32
-const_neg_32:
-    dw -32
-const_one:
-    dw 1
+const_max_iterations:
+    dw 20
+const_neg_16:
+    dw -16
 const_neg_one:
     dw -1
 const_four_gt:
-    dw $0010000001      ; Just a bit over 4.
+    dw $0000001001      ; Just a bit over 4.
 const_x1:
-    dw $FFF8000000      ; -2.00
+    dw $FFFFFFF800      ; -2.00
 const_x2:
-    dw $0004000000      ; +1.00
+    dw $0000000400      ; +1.00
 const_xstep:
-    dw $0000300000      ; (2.00 + 1.00) / 64
+    dw $0000000030      ; (2.00 + 1.00) / 64
 const_y1:
-    dw $FFFC000000      ; -1.00
+    dw $FFFFFFFC00      ; -1.00
 const_y2:
-    dw $0004000000      ; +1.00
+    dw $0000000400      ; +1.00
 const_ystep:
-    dw $0000555555      ; (1.00 + 1.00) / 24
+    dw $0000000055      ; (1.00 + 1.00) / 24
 
 ;
 ; Characters to print for the different numbers of iterations that
 ; occurred before the point jumped out of the Mandelbrot set.
+; There are enough characters here for up to 20 iterations.
 ;
 chars:
-    dw " .,-*/$&#@0123456789ABCDEFGHIJKLM"
+    dw " .,-*/$&#@0123456789A"
 
     entry start
