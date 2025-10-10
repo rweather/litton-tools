@@ -10,9 +10,11 @@ PROGRAMS = \
 	hello_world.drum \
 	hello_world_pointers.drum \
 	math_fragments.drum \
+	mandelbrot.drum \
 	fibonacci.tape \
 	hellorld.tape \
 	hello_world.tape \
+	mandelbrot.tape \
 
 all: $(PROGRAMS)
 
@@ -42,6 +44,12 @@ hellorld.tape: hellorld.las
 
 math_fragments.drum: math_fragments.las
 	$(LITTON_AS) -o math_fragments.drum math_fragments.las
+
+mandelbrot.drum: mandelbrot.las
+	$(LITTON_AS) -o mandelbrot.drum mandelbrot.las
+
+mandelbrot.tape: mandelbrot.las
+	$(LITTON_AS) -T -o mandelbrot.tape mandelbrot.las
 
 clean:
 	rm -f $(PROGRAMS)
