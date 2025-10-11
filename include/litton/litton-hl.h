@@ -91,7 +91,7 @@ extern "C" {
 #define LHOP_DUPE   0x01C   /* Duplicate with even parity */
 #define LHOP_DUPO   0x01D   /* Duplicate with odd parity */
 #define LHOP_SPEC   0x01E   /* Output special data */
-#define LHOP_IN     0x020   /* Input n digits, operand is 1-10 */
+#define LHOP_IN     0x020   /* Input n digits, operand is 0-11 */
 #define LHOP_MDV    0x040   /* Multiply divide, operand is V00-V31 */
 #define LHOP_OUT    0x060   /* Output, operand is V00-V31 */
 #define LHOP_ACC    0x080   /* Add Vnn to A, operand is V00-V63 */
