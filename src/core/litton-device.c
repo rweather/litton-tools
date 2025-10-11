@@ -571,7 +571,20 @@ static int litton_tape_reader_input
                 ch = litton_char_to_charset
                     (buffer, &posn, len, LITTON_CHARSET_EBS1231);
                 if (ch >= 0) {
+                    /* Add parity and return the character to the caller */
                     *value = litton_add_parity(ch, parity);
+
+                    /* Lookahead to the next input byte and close the file
+                     * now if we have reached EOF.  OPUS stops reading a
+                     * tape when it sees ',' and we don't want to leave the
+                     * file open if no more reading will occur. */
+                    ch = getc(device->file);
+                    if (ch == EOF) {
+                        fclose(device->file);
+                        device->file = 0;
+                    } else {
+                        ungetc(ch, device->file);
+                    }
                     return 1;
                 }
                 return 0;
