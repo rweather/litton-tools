@@ -207,32 +207,24 @@ square_pos:
     xc 1                ; Put the multiplier in the high bits of S1.
 square_loop:
     bld 1               ; Shift the answer in S0/S1 up by 1 bit.
-    jc square_add       ; If the high bit was set, we need to add S2 to S0/S1.
+    jc square_add_carry ; If the high bit was set, we need to add S2 to S0/S1.
 square_next:
     ca 4                ; Increment the loop counter.
     sk
     ak
     st 4
-    tz                  ; Bail out if the loop counter is now zero.
-    jc square_done
-    ju square_loop
-square_add:
+    jc square_done      ; Bail out if the loop counter is now zero.
+    ju square_loop      ; Otherwise back around for more.
+square_add_carry:
     ca 2                ; Add S2 to S0/S1.
     ad 0
     st 0
-    jc square_add_carry
-    ju square_next
-square_add_carry:
-    ca 1                ; Deal with the carry into the high word S1.
-    ak
-    st 1
     ju square_next
 square_done:
 ;
-; Shift S0/S1 down to reposition the decimal point.  We lose a bit due to
-; the sign bit, so we need to shift down by 9 bits, not 10.
+; Shift S0/S1 down to reposition the decimal point.
 ;
-    brd 9
+    brd 10
     xc 0                ; Shift the result into A.
     ju 7                ; Return from the subroutine.
 
