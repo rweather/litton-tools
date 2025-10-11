@@ -153,8 +153,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ; for digits 0-9,A-F for use in number formatting.
 ;
 600: 4B 58 C0 01 04     ; Space
-601: 10 7F C0 00 18     ; 1             ; CORRUPT!  FIXME!
-602: 7E 84 7D 00 28     ; 2             ; CORRUPT!  FIXME!
+601: 10 10 06 00 18     ; 1
+602: E6 50 00 00 28     ; 2
 603: 01 50 00 80 3A     ; 3
 604: 99 44 C0 00 48     ; 4
 605: 02 42 01 80 58     ; 5
@@ -237,24 +237,17 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $681 - Command handler for J - Undocumented Command.
 ;
-; All this seems to do is halt with code 7.  Not sure why this is useful.
+; TODO
 ;
-681: 04 1F C6 5E 05           LA    7           ; CORRUPT!  FIXME!
-                              JM    $65E
-                              HH    5
-65E: 00 07 07 E6 5E           HH    7
-                              HH    7
-                              JU    $65E
+681: 00 84 ED E5 21           CA    $4ED
+                              JU    $521
 ;
 ; $682 - Command handler for K - Undocumented Command.
 ;
-; Not sure what this is doing.
-;
 ; TODO
 ;
-682: 1E 84 5D D2 1C           CA    $45D        ; CORRUPT!  FIXME!
-                              AC    $21C
-                              JU    $61E
+682: 00 84 ED E5 25           CA    $4ED
+                              JU    $525
 ;
 ; $683 - Command handler for L - Punch Tape Leader.
 ;
@@ -646,7 +639,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 58E: 1A 3B F7 0C 0A           TG    3           ; Number over the limit?
                               JC    $70C        ; Print "ERR" and stop.
 51A: 00 E4 FE 00 00           JU    $4FE        ; Return to the caller.
-582: 9E 82 9D DA 1C           DW    $9E829DDA1C ; CORRUPT!  FIXME!
+582: 00 00 00 03 80           DW    $0000000380
 67C: 00 00 00 0F FF           DW    $0000000FFF
 786: 00 00 00 00 40           DW    $0000000040
 ;
