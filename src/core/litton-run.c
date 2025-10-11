@@ -816,7 +816,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Add K to the accumulator */
             litton_add_opcode_timing(state, 3);
             state->A += state->K;
-            if (state->A >= LITTON_WORD_MASK) {
+            if (state->A > LITTON_WORD_MASK) {
                 state->A = 0;
                 state->K = 1;
             } else {
@@ -1006,7 +1006,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             litton_add_memory_timing(state, addr);
             litton_add_opcode_timing(state, 4);
             state->A += state->drum[addr];
-            state->K = (state->A >= LITTON_WORD_MASK);
+            state->K = (state->A > LITTON_WORD_MASK);
             state->A &= LITTON_WORD_MASK;
             break;
 
@@ -1046,7 +1046,7 @@ litton_step_result_t litton_step(litton_state_t *state)
                 litton_add_memory_timing(state, addr);
                 litton_add_opcode_timing(state, 4);
                 state->A += state->drum[addr];
-                state->K = (state->A >= LITTON_WORD_MASK);
+                state->K = (state->A > LITTON_WORD_MASK);
                 state->A &= LITTON_WORD_MASK;
             } else {
                 litton_add_opcode_timing(state, 3);
