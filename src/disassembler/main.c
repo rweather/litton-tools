@@ -32,6 +32,8 @@ static void disassemble_raw(void);
 static void disassemble_pretty(void);
 static void disassemble_straighten(void);
 static void dump_strings(void);
+static void dump_binary(void);
+static void dump_pixels(void);
 
 int main(int argc, char *argv[])
 {
@@ -41,6 +43,8 @@ int main(int argc, char *argv[])
     int pretty = 1;
     int straighten = 0;
     int strings = 0;
+    int binary = 0;
+    int pixels = 0;
 
     /* Check for raw or pretty mode */
     if (argc > 1 && !strcmp(argv[1], "--raw")) {
@@ -64,6 +68,16 @@ int main(int argc, char *argv[])
         ++argv;
         --argc;
     }
+    if (argc > 1 && !strcmp(argv[1], "--binary")) {
+        binary = 1;
+        ++argv;
+        --argc;
+    }
+    if (argc > 1 && !strcmp(argv[1], "--pixels")) {
+        pixels = 1;
+        ++argv;
+        --argc;
+    }
 
     /* Need at least one argument */
     if (argc < 2) {
@@ -77,7 +91,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "        Disassemble in pretty format but rearrange the code to\n");
         fprintf(stderr, "        straighten out the flow of control.\n\n");
         fprintf(stderr, "    --strings\n");
-        fprintf(stderr, "        Dump all characters on the drum, to help find message strings.\n");
+        fprintf(stderr, "        Dump all characters on the drum, to help find message strings.\n\n");
+        fprintf(stderr, "    --binary\n");
+        fprintf(stderr, "        Convert the drum image into raw binary.\n\n");
+        fprintf(stderr, "    --pixels\n");
+        fprintf(stderr, "        Convert the drum image into pixels in PPM format.\n");
         return 1;
     }
 
@@ -90,6 +108,10 @@ int main(int argc, char *argv[])
             }
             if (strings) {
                 dump_strings();
+            } else if (binary) {
+                dump_binary();
+            } else if (pixels) {
+                dump_pixels();
             } else if (straighten) {
                 disassemble_straighten();
             } else if (pretty) {
@@ -638,5 +660,52 @@ static void dump_strings(void)
             print_alpha_numeric(machine.drum[addr + offset]);
         }
         printf("\n");
+    }
+}
+
+/* Dump the drum image directly to binary */
+static void dump_binary(void)
+{
+    litton_drum_loc_t addr;
+    litton_word_t word;
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+        word = machine.drum[addr];
+        putc((word >> 32) & 0xFF, stdout);
+        putc((word >> 24) & 0xFF, stdout);
+        putc((word >> 16) & 0xFF, stdout);
+        putc((word >> 8) & 0xFF, stdout);
+        putc(word & 0xFF, stdout);
+    }
+}
+
+static void dump_scaled(int x, int scale)
+{
+    x = x * 255 / scale;
+    putc(x, stdout);
+}
+
+static void dump_pixel(litton_word_t pixel)
+{
+    dump_scaled(pixel >> 14, 0x3F);
+    dump_scaled((pixel >> 7) & 0x7F, 0x7F);
+    dump_scaled(pixel & 0x7F, 0x7F);
+}
+
+/* Dump the drum image in PPM format, two pixels per word, RGB677 format */
+static void dump_pixels(void)
+{
+    litton_drum_loc_t addr;
+    litton_word_t word;
+    litton_word_t pix1;
+    litton_word_t pix2;
+    printf("P6\n");
+    printf("128 64\n");
+    printf("255\n");
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+        word = machine.drum[addr];
+        pix1 = word >> 20;
+        pix2 = word & 0x0FFFFF;
+        dump_pixel(pix1);
+        dump_pixel(pix2);
     }
 }
