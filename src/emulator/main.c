@@ -40,6 +40,8 @@ static void usage(const char *progname)
     fprintf(stderr, "        Set the size of the drum, in decimal; default 4096.\n");
     fprintf(stderr, "    -v\n");
     fprintf(stderr, "        Verbose disassembly of instructions as they are executed.\n");
+    fprintf(stderr, "    -t\n");
+    fprintf(stderr, "        Print elapsed machine time when the program halts.\n");
 }
 
 static litton_state_t machine;
@@ -50,6 +52,7 @@ int main(int argc, char *argv[])
     litton_step_result_t step;
     int fast_mode = 0;
     int exit_status = 0;
+    int print_elapsed = 0;
     int opt;
     uint64_t elapsed_ns;
     uint64_t checkpoint_counter;
@@ -61,7 +64,7 @@ int main(int argc, char *argv[])
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "fe:s:v")) != -1) {
+    while ((opt = getopt(argc, argv, "fe:s:vt")) != -1) {
         if (opt == 'e') {
             litton_set_entry_point(&machine, strtoul(optarg, NULL, 16));
         } else if (opt == 'f') {
@@ -70,6 +73,8 @@ int main(int argc, char *argv[])
             litton_set_drum_size(&machine, strtoul(optarg, NULL, 0));
         } else if (opt == 'v') {
             machine.disassemble = 1;
+        } else if (opt == 't') {
+            print_elapsed = 1;
         } else {
             usage(progname);
             litton_free(&machine);
@@ -159,7 +164,9 @@ int main(int argc, char *argv[])
         exit_status = 1;
         break;
     }
-    printf("elapsed = %fs\n", machine.cycle_counter / 1000000.0);
+    if (print_elapsed) {
+        printf("\r\nelapsed = %fs\r\n", machine.cycle_counter / 1000000.0);
+    }
     litton_free(&machine);
     return exit_status;
 }
