@@ -26,6 +26,100 @@
 #include <string.h>
 #include <ctype.h>
 
+static int litton_from_hex(int ch)
+{
+    if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+    } else if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+    } else {
+        return ch - '0';
+    }
+}
+
+static int litton_read_tape_word(FILE *file, litton_word_t *word)
+{
+    int ch;
+
+    /* Zero the in-progress word */
+    *word = 0;
+
+    /* Skip whitespace before the next word */
+    ch = getc(file);
+    while (ch == ' ' || ch == '\r' || ch == '\n') {
+        ch = getc(file);
+    }
+
+    /* Error if we have reached EOF or a terminator without a word */
+    if (ch == EOF || !isxdigit(ch)) {
+        return -2;
+    }
+
+    /* Read as many hexadecimal digits as we can */
+    *word = litton_from_hex(ch);
+    for (;;) {
+        ch = getc(file);
+        if (ch == EOF || !isxdigit(ch)) {
+            break;
+        }
+        *word <<= 4;
+        *word += litton_from_hex(ch);
+    }
+    return ch;
+}
+
+static int litton_load_tape
+    (litton_state_t *state, const char *filename, uint8_t *use_mask, FILE *file)
+{
+    litton_word_t word = 0;
+    litton_drum_loc_t addr = 0;
+    int ok = 0;
+    int ch;
+    for (;;) {
+        ch = litton_read_tape_word(file, &word);
+        if (ch == -2) {
+            ok = 0;
+            break;
+        } else if (ch == EOF || ch == ',') {
+            /* Record the final word and stop */
+            if (addr >= LITTON_DRUM_MAX_SIZE) {
+                break;
+            }
+            word &= LITTON_WORD_MASK;
+            state->drum[addr] = word;
+            if (use_mask) {
+                use_mask[addr] = 1;
+            }
+            ok = 1;
+            break;
+        } else if (ch == '/' || ch == '\r' || ch == '\n') {
+            /* Record the current word and increment the address */
+            if (addr >= LITTON_DRUM_MAX_SIZE) {
+                break;
+            }
+            word &= LITTON_WORD_MASK;
+            state->drum[addr] = word;
+            if (use_mask) {
+                use_mask[addr] = 1;
+            }
+            ++addr;
+        } else if (ch == '#') {
+            /* Address for a new range of words */
+            if (word >= LITTON_DRUM_MAX_SIZE) {
+                break;
+            }
+            addr = (litton_drum_loc_t)word;
+        } else {
+            /* Invalid terminator character */
+            break;
+        }
+    }
+    if (!ok) {
+        fprintf(stderr, "%s: invalid tape image\n", filename);
+    }
+    return ok;
+}
+
 int litton_load_drum
     (litton_state_t *state, const char *filename, uint8_t *use_mask)
 {
@@ -38,6 +132,7 @@ int litton_load_drum
     unsigned long keyboard_device = 0;
     litton_charset_t keyboard_charset = LITTON_CHARSET_EBS1231;
     int ok = 1;
+    int first_line = 1;
     if ((file = fopen(filename, "r")) == NULL) {
         perror(filename);
         return 0;
@@ -47,6 +142,22 @@ int litton_load_drum
     }
     line = 0;
     while (fgets(buffer, sizeof(buffer), file)) {
+        /* If the first line starts with three hexadecimal digits and a '#'
+         * then it is probably a Litton tape image instead of a drum image. */
+        if (first_line && isxdigit(buffer[0]) && isxdigit(buffer[1]) &&
+                isxdigit(buffer[2]) && buffer[3] == '#') {
+            /* Seek back to the start of the file and read as a tape instead */
+            if (fseek(file, 0, SEEK_SET) < 0) {
+                perror(filename);
+                fclose(file);
+                return 0;
+            }
+            ok = litton_load_tape(state, filename, use_mask, file);
+            fclose(file);
+            return ok;
+        }
+        first_line = 0;
+
         /* Trim white space from the end of the line */
         ++line;
         len = strlen(buffer);
