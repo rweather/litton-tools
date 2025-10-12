@@ -21,6 +21,7 @@
  */
 
 #include <litton/litton.h>
+#include <litton/litton-hl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,6 +159,18 @@ static int is_valid_instruction_word(litton_word_t word)
     return 1;
 }
 
+/* Determine if an address corresponds to the high-level program space */
+static int is_high_level_program_addr(litton_drum_loc_t addr)
+{
+    return addr >= 0x300 && addr <= 0x37F;
+}
+
+/* Determine if an address corresponds to the high-level storage space */
+static int is_high_level_storage_addr(litton_drum_loc_t addr)
+{
+    return addr >= 0x380 && addr <= 0x3BF;
+}
+
 /* Disassemble the instructions in a word in raw mode */
 static void disassemble_word_raw(litton_drum_loc_t addr, litton_word_t word)
 {
@@ -218,6 +231,77 @@ static void disassemble_word_raw(litton_drum_loc_t addr, litton_word_t word)
     printf("| NEXT:$%03X\n", addr);
 }
 
+/* Disassemble the high-level instructions in a word */
+static void disassemble_high_level_word(litton_word_t word, int pretty)
+{
+    const litton_hl_opcode_info_t *opcode;
+    unsigned posn = 0;
+    uint16_t insn;
+    int spaces;
+    while (posn < 4) {
+        insn = (word >> ((3 - posn) * 10)) & 0x3FF;
+        ++posn;
+        opcode = litton_hl_opcode_by_number(insn);
+        if (pretty) {
+            printf("     ");
+        } else {
+            printf("| ");
+        }
+        if (strlen(opcode->name) < 5) {
+            printf("%-4s ", opcode->name);
+        } else {
+            printf("%-5s", opcode->name);
+        }
+        spaces = 0;
+        switch (opcode->operand_type) {
+        case LITTON_HL_OPERAND_NONE:
+            spaces = 5;
+            break;
+
+        case LITTON_HL_OPERAND_PROGRAM:
+            printf("P%03d", insn & 0x7F);
+            spaces = 1;
+            break;
+
+        case LITTON_HL_OPERAND_STORAGE:
+            printf("V%02d", insn & 0x3F);
+            spaces = 2;
+            break;
+
+        case LITTON_HL_OPERAND_STORAGE32:
+            printf("V%02d", insn & 0x1F);
+            spaces = 2;
+            break;
+
+        case LITTON_HL_OPERAND_INPUT:
+            printf("%02d", insn & 0x1F);
+            spaces = 3;
+            break;
+
+        case LITTON_HL_OPERAND_CHAR:
+        case LITTON_HL_OPERAND_DEVICE:
+            printf("%02o", insn & 0x3F);
+            spaces = 3;
+            break;
+
+        case LITTON_HL_OPERAND_TAB:
+            printf("%-3d", (insn & 0x3F) * 3 + 1);
+            spaces = 2;
+            break;
+        }
+        while (spaces > 0 && !pretty) {
+            putc(' ', stdout);
+            --spaces;
+        }
+        if (pretty) {
+            printf("\n");
+        }
+    }
+    if (!pretty) {
+        printf("\n");
+    }
+}
+
 static void disassemble_raw(void)
 {
     litton_drum_loc_t addr;
@@ -227,13 +311,24 @@ static void disassemble_raw(void)
             continue;
         }
         word = machine.drum[addr];
-        printf("%03X: %02X %02X %02X %02X %02X ", addr,
+        if (is_high_level_program_addr(addr)) {
+            printf("P%03d [%03X]: ", addr - 0x300, addr);
+        } else if (is_high_level_storage_addr(addr)) {
+            printf("V%02d  [%03X]: ", addr - 0x380, addr);
+        } else {
+            printf("%03X: ", addr);
+        }
+        printf("%02X %02X %02X %02X %02X ",
                (unsigned)((word >> 32) & 0xFF),
                (unsigned)((word >> 24) & 0xFF),
                (unsigned)((word >> 16) & 0xFF),
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
-        if (is_valid_instruction_word(word)) {
+        if (is_high_level_program_addr(addr)) {
+            disassemble_high_level_word(word, 0);
+        } else if (is_high_level_storage_addr(addr)) {
+            printf("| DW $%010lX\n", (unsigned long)word);
+        } else if (is_valid_instruction_word(word)) {
             disassemble_word_raw(addr, word);
         } else {
             printf("| DW $%010lX\n", (unsigned long)word);
@@ -344,16 +439,31 @@ static void disassemble_pretty(void)
             continue;
         }
         word = machine.drum[addr];
-        printf("%03X: %02X %02X %02X %02X %02X", addr,
+        if (is_high_level_program_addr(addr)) {
+            printf("P%03d [%03X]: ", addr - 0x300, addr);
+        } else if (is_high_level_storage_addr(addr)) {
+            printf("V%02d  [%03X]: ", addr - 0x380, addr);
+        } else {
+            printf("%03X: ", addr);
+        }
+        printf("%02X %02X %02X %02X %02X",
                (unsigned)((word >> 32) & 0xFF),
                (unsigned)((word >> 24) & 0xFF),
                (unsigned)((word >> 16) & 0xFF),
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
-        printf("    \"");
-        print_alpha_numeric(word);
-        printf("\"\n");
-        if (is_valid_instruction_word(word)) {
+        if (!is_high_level_program_addr(addr)) {
+            printf("    \"");
+            print_alpha_numeric(word);
+            printf("\"\n");
+        } else {
+            printf("\n");
+        }
+        if (is_high_level_program_addr(addr)) {
+            disassemble_high_level_word(word, 1);
+        } else if (is_high_level_storage_addr(addr)) {
+            printf("     DW $%010lX\n", (unsigned long)word);
+        } else if (is_valid_instruction_word(word)) {
             disassemble_word_pretty(addr, word);
         } else {
             printf("     DW $%010lX\n", (unsigned long)word);
