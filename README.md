@@ -26,13 +26,13 @@ Then do this from the main repository directory:
 After building and installing the tools, you can run the command-line
 emulator on the examples to check basic functionality:
 
-    litton-run examples/hello_world.drum
-    litton-run examples/fibonacci.drum
+    litton-run examples/low-level/hello_world.drum
+    litton-run examples/low-level/fibonacci.drum
 
 Use the `-v` (verbose) option to print the register contents and disassemble
 instructions as each instruction is executed:
 
-    litton-run -v examples/fibonacci.drum
+    litton-run -v examples/low-level/fibonacci.drum
 
 The command-line emulator will attempt to simulate the speed of the original
 Litton.  Use the `-f` option (fast mode) to run at the full speed of the
@@ -40,7 +40,7 @@ host computer.
 
 To run the GUI version of the emulator, use "litton" instead:
 
-    litton examples/echo.drum
+    litton examples/low-level/echo.drum
 
 Once the system starts, press HALT, then READY, then RUN to start the program.
 See the [EBS315 ABS 1231 Operator Manual](manuals/EBS315_ABS_1231_Operator_Manual_1969.pdf)
@@ -69,7 +69,7 @@ The `litton-disassembler` tool can disassemble images in the
 tries to make the result look "pretty" by suppressing implicit jumps and
 padding no-ops:
 
-    $ litton-disassembler examples/fibonacci.drum
+    $ litton-disassembler examples/low-level/fibonacci.drum
     700: 01 09 B0 00 10
          CL
          ST    0
@@ -94,7 +94,7 @@ padding no-ops:
 
 There is also a "raw" mode that shows the sub-instructions in columns:
 
-    $ litton-disassembler --raw examples/fibonacci.drum
+    $ litton-disassembler --raw examples/low-level/fibonacci.drum
     700: 01 09 B0 00 10 | CL        | ST   0    | SK        |           | NEXT:$701
     701: 02 08 21 E7 02 | AK        | XC   1    | JU   $702 |           | NEXT:$702
     702: 03 80 01 B0 07 | CA   1    | ST   7    |           |           | NEXT:$703
