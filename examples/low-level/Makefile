@@ -1,7 +1,7 @@
 
 .PHONY: all clean
 
-LITTON_AS = ../build/src/litton-as
+LITTON_AS = ../../build/src/litton-as
 
 PROGRAMS = \
 	echo.drum \
