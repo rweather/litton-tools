@@ -32,6 +32,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "images.h"
+#include "core/litton-opus.h"
 
 static void usage(const char *progname)
 {
@@ -1321,6 +1322,9 @@ int main(int argc, char *argv[])
             litton_free(&machine);
             return 1;
         }
+    } else {
+        /* No drum image, so load the default OPUS image instead */
+        memcpy(machine.drum, opus, sizeof(opus));
     }
     create_devices();
 

@@ -7,6 +7,7 @@ set(CORE_SOURCES
     core/litton-opcodes.c
     core/litton-run.c
     core/litton-state.c
+    core/litton-opus.h
 )
 
 add_executable(litton-run

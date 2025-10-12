@@ -26,10 +26,11 @@
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
+#include "core/litton-opus.h"
 
 static void usage(const char *progname)
 {
-    fprintf(stderr, "Usage: %s [options] image.drum\n\n", progname);
+    fprintf(stderr, "Usage: %s [options] [image.drum]\n\n", progname);
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "    -f\n");
     fprintf(stderr, "        Fast mode; do not slow down to the original speed.\n");
@@ -46,7 +47,6 @@ static litton_state_t machine;
 int main(int argc, char *argv[])
 {
     const char *progname = argv[0];
-    const char *drum_image;
     litton_step_result_t step;
     int fast_mode = 0;
     int exit_status = 0;
@@ -76,17 +76,15 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-    if (optind >= argc) {
-        usage(progname);
-        litton_free(&machine);
-        return 1;
-    }
-    drum_image = argv[optind];
 
-    /* Load the drum image into memory */
-    if (!litton_load_drum(&machine, drum_image, NULL)) {
-        litton_free(&machine);
-        return 1;
+    /* Load the drum image or OPUS into memory */
+    if (optind < argc) {
+        if (!litton_load_drum(&machine, argv[optind], NULL)) {
+            litton_free(&machine);
+            return 1;
+        }
+    } else {
+        memcpy(machine.drum, opus, sizeof(opus));
     }
 
     /* Create the standard devices */
@@ -161,6 +159,7 @@ int main(int argc, char *argv[])
         exit_status = 1;
         break;
     }
+    printf("elapsed = %fs\n", machine.cycle_counter / 1000000.0);
     litton_free(&machine);
     return exit_status;
 }
