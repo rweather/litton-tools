@@ -74,6 +74,8 @@ extern "C" {
 #define LHOP_NGA    0x009   /* Negate A */
 #define LHOP_NGB    0x00A   /* Negate B */
 #define LHOP_INA    0x00B   /* Input from ASCII-coded tape */
+#define LHOP_DTEN   0x00C   /* Divide by 10 */
+#define LHOP_SSCAN  0x00D   /* ??? */
 #define LHOP_SCI    0x00E   /* Single character input */
 #define LHOP_OPUS   0x00F   /* Return to OPUS */
 #define LHOP_SKIP   0x010   /* Skip field from tape */
@@ -91,7 +93,8 @@ extern "C" {
 #define LHOP_DUPE   0x01C   /* Duplicate with even parity */
 #define LHOP_DUPO   0x01D   /* Duplicate with odd parity */
 #define LHOP_SPEC   0x01E   /* Output special data */
-#define LHOP_IN     0x020   /* Input n digits, operand is 0-11 */
+#define LHOP_SSCLR  0x01F   /* ??? */
+#define LHOP_IN     0x020   /* Input n digits, operand is 0-31 */
 #define LHOP_MDV    0x040   /* Multiply divide, operand is V00-V31 */
 #define LHOP_OUT    0x060   /* Output, operand is V00-V31 */
 #define LHOP_ACC    0x080   /* Add Vnn to A, operand is V00-V63 */

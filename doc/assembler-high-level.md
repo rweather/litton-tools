@@ -35,7 +35,8 @@ Instructions are encoded as 10-bit values, packed 4 to a word.
 <tr><td><tt>009</tt></td><td><tt>NGA</tt></td><td>Negate A</td><td> </td><td>A</td><td>Set A to -A</td></tr>
 <tr><td><tt>00A</tt></td><td><tt>NGB</tt></td><td>Negate B</td><td> </td><td>A</td><td>Set B to -B</td></tr>
 <tr><td><tt>00B</tt></td><td><tt>INA</tt></td><td>Input from ASCII-coded tape</td><td> </td><td>A</td><td>Reads a number from tape in ASCII format into A</td></tr>
-<tr><td><tt>00C</tt></td><td><tt>???</tt></td><td>Divide by 10</td><td> </td><td>A, B</td><td>Divides A by 10 and puts the quotient in A and the remainder in B</td></tr>
+<tr><td><tt>00C</tt></td><td><tt>DTEN</tt></td><td>Divide by 10</td><td> </td><td>A, B</td><td>Divides A by 10 and puts the quotient in A and the remainder in B</td></tr>
+<tr><td><tt>00D</tt></td><td><tt>SSCAN</tt></td><td>???</td><td> </td><td> </td><td>???</td></tr>
 <tr><td><tt>00E</tt></td><td><tt>SCI</tt></td><td>Single Character Input</td><td> </td><td>A</td><td>Read a single character from the input device into A</td></tr>
 <tr><td><tt>00F</tt></td><td><tt>OPUS</tt></td><td>Program Interrupt</td><td> </td><td> </td><td>Jump back into OPUS for diagnostic purposes</td></tr>
 <tr><td><tt>010</tt></td><td><tt>SKIP</tt></td><td>Skip Field From Tape</td><td> </td><td> </td><td>Reads and ignores an input field from tape, which is expected to be terminated with the "I" key.</td></tr>
@@ -53,6 +54,7 @@ Instructions are encoded as 10-bit values, packed 4 to a word.
 <tr><td><tt>01C</tt></td><td><tt>DUPE</tt></td><td>Duplicate Data With Even Parity</td><td> </td><td> </td><td>???</td></tr>
 <tr><td><tt>01D</tt></td><td><tt>DUPO</tt></td><td>Duplicate Data With Odd Parity</td><td> </td><td> </td><td>???</td></tr>
 <tr><td><tt>01E</tt></td><td><tt>SPEC</tt></td><td>Output Special Data</td><td> </td><td> </td><td>Write a single character from A to the output device with no parity control</td></tr>
+<tr><td><tt>01F</tt></td><td><tt>SSCLR</tt></td><td>???</td><td> </td><td> </td><td>???</td></tr>
 <tr><td><tt>020 + nn</tt></td><td><tt>INnn</tt></td><td>Input</td><td>0-11</td><td> </td><td>B is copied to A, and up to nn digits are input into A.  V00 will be set based on the key that is used to terminate the input.</td></tr>
 <tr><td><tt>040 + nn</tt></td><td><tt>MDVnn</tt></td><td>Multiply - Divide</td><td>0-31</td><td>A</td><td>Sets A to (A * B / Vnn)</td></tr>
 <tr><td><tt>060 + nn</tt></td><td><tt>OUTnn</tt></td><td>Output</td><td>0-31</td><td> </td><td>Outputs the value in A according to the formatting rules in Vnn.</td></tr>
