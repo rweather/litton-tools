@@ -40,6 +40,13 @@ host computer.
 
 To run the GUI version of the emulator, use "litton" instead:
 
+    litton
+
+This will launch the emulator using a built-in copy of OPUS based on the
+file `OPUS/opus.drum`.  You can instead provide a custom drum image on the
+command-line:
+
+    litton OPUS/whole.drum
     litton examples/low-level/echo.drum
 
 Once the system starts, press HALT, then READY, then RUN to start the program.
@@ -52,7 +59,27 @@ If this isn't installed already, then do the following:
 
     sudo apt install zenity
 
-The machine must be halted to use the DRUM and TAPE buttons.
+The machine must be halted to use the DRUM load and save buttons.
+
+When running OPUS, the following keys do useful things:
+
+* F1 - "I" function key - Terminate a line of input in "S" / store mode.
+* F4 - "IIII" function key - Run the high-level application program in memory.
+* F5 - "P1" function key - Load a program from paper tape.
+* T - Save the high-level application program in memory to paper tape.
+
+The other Litton function keys are mapped as follows:
+
+* F2 - "II" function key.
+* F3 - "III" function key.
+* F6 - "P2" function key.
+* F7 - "P3" function key.
+* F8 - "P4" function key.
+
+When loading from or saving to paper tape, the TAPE IN or TAPE OUT button
+will highlight.  Press the highlighted button to select a tape file.
+To close a tape file, press the button and then immediately cancel the
+file dialog.
 
 ## Assembler
 
