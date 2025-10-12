@@ -15,6 +15,23 @@ After loading, you can press F4 (IIII) to run the program.
 The program `fibonacci.tape` calculates the Fibonacci sequence and
 prints it one number at a time to the printer.
 
+## HELLORLD
+
+The program `hellorld.tape` prints the string "HELLORLD" followed by CRLF,
+and then returns to OPUS.  The string is placed in V storage registers,
+and printed 5 characters at a time.  Here is the psuedocode version:
+
+    P00# BV 0               ; Bring the value of V00 into the A register.
+         ALFO               ; Print the A register as 5 characters.
+         BV 1               ; Bring the value of V01 into the A register.
+         ALFO               ; Print the A register as 5 characters.
+    P01# OPUS               ; Return to OPUS.
+         AJ                 ; NOP-padding of P01 to 4 instructions.
+         AJ
+         AJ
+    V00# 241409663782       ; "HELLO"
+    V01# 176684286013       ; "RLD", CR, LF
+
 ## Print Paper Tape
 
 The program `print-tape.tape` prints the contents of a paper tape to the
