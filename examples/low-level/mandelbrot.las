@@ -1,7 +1,7 @@
 ;
 ; Mandelbrot implementation for the Litton computer in low-level machine code.
 ;
-; This implementation uses 16-bit fixed-point values with 6 bits before the
+; This implementation uses 13-bit fixed-point values with 3 bits before the
 ; decimal point and 10 bits after the decimal point.
 ;
 ; Implementation ideas originally from:
@@ -186,13 +186,13 @@ finished:
     hh 0                ; Halt.
 
 ;
-; Square the value in S0, result in A.
+; Square the 13-bit fixed-point value in S0, result in A.
 ;
 ; Destroys S0, S1, S2, S3, S4, S7
 ;
 square:
     xc 7                ; Put the return address in S7.
-    ca const_neg_16
+    ca const_neg_13
     st 4                ; S4 is the loop counter, increments up to zero.
     cl
     xc 0                ; Load S0 into A and zero S0.
@@ -203,7 +203,7 @@ square_neg:
     cm
 square_pos:
     st 2                ; Store the multiplicand into S2.
-    bls 24              ; Shift the MSB of the multiplier up by 24 bits.
+    bls 27              ; Shift the MSB of the multiplier up by 27 bits.
     xc 1                ; Put the multiplier in the high bits of S1.
 square_loop:
     bld 1               ; Shift the answer in S0/S1 up by 1 bit.
@@ -216,8 +216,8 @@ square_next:
     jc square_done      ; Bail out if the loop counter is now zero.
     ju square_loop      ; Otherwise back around for more.
 square_add_carry:
-    ca 2                ; Add S2 to S0/S1.
-    ad 0
+    ca 2                ; Add S2 to S0/S1.  S1 can be ignored because the
+    ad 0                ; result is small enough to fit in 40 bits.
     st 0
     ju square_next
 square_done:
@@ -233,8 +233,8 @@ square_done:
 ;
 const_max_iterations:
     dw 20
-const_neg_16:
-    dw -16
+const_neg_13:
+    dw -13
 const_neg_one:
     dw -1
 const_four_gt:
