@@ -1760,3 +1760,136 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 4D4: FF FF FE 00 00           DW    $FFFFFE0000
 4DE: 0A 00 01 E4 F0           DW    $0A0001E4F0
 7F7: FF FF FF FC 00           DW    $FFFFFFFC00
+;
+; $402 - Print the number in S1 using the formatting edit word in S0.
+;
+402: 00 B4 F9 E5 2A           ST    $4F9        ; Store return address in $4F9.
+52A: 3C 80 01 B0 07           CA    1           ; Load the number from S1.
+                              ST    7           ; Copy it to S7.
+53C: C9 0B 12 F6 C6           CM                ; Calculate the absolute
+                              TH                ; value of S1 and put it
+                              JC    $6C6        ; back into S1.
+5C9: 00 B0 01 E6 C6           ST    1
+6C6: D5 86 CA 20 0A           CA    $6CA        ; ???
+                              XC    0
+6D5: 92 6A 09 40 03           DRD   10
+                              BLS   4
+692: A3 B0 04 F6 A0           ST    4
+                              JC    $6A0
+6A3: AF 40 01 F6 AC           BLS   2
+                              JC    $6AC
+6AF: C0 40 00 23 0A           BLS   1
+                              XC    3
+6C0: 93 87 78 08 0A           CA    $778        ; Set A to -1.
+                              AK   
+693: 00 23 21 E5 D6           XC    3
+                              XC    1
+5D6: 68 09 21 40 00           CL   
+                              XC    1
+                              BLS   1
+568: F4 F5 EC 40 00           JC    $5EC
+                              BLS   1
+5F4: 81 F5 F8 40 00           JC    $5F8
+                              BLS   1
+581: 95 80 07 B0 01           CA    7           ; Recover the original number.
+                              ST    1           ; Put it back into S1.
+595: 20 F5 99 12 0A           JC    $599        ; Skip if no sign required.
+                              TH                ; Is the value negative?
+520: 00 F5 24 E5 27           JC    $524        ; If yes, jump to $524.
+527: 27 78 80 F5 99           OI    $80         ; Print a space.
+                              JC    $599
+                              JU    $527
+524: 24 78 20 F5 99           OI    $20         ; Print a minus sign '-'.
+                              JC    $599
+                              JU    $524
+599: 2E 24 0B 12 0A           XC    4
+                              CM   
+                              TH   
+52E: 2E F4 F9 78 1C           JC    $4F9        ; Return from subroutine.
+                              OI    $1C         ; Print the I function key.
+                              JU    $52E
+5EC: FA 40 00 F6 74           BLS   1
+                              JC    $674
+5FA: 92 40 00 F7 82           BLS   1
+                              JC    $782
+592: A7 23 12 23 0A           XC    3
+                              TH   
+                              XC    3
+5A7: 00 F5 2B E5 AE           JC    $52B
+5AE: AE 78 9B F6 94           OI    $9B         ; Print a comma.
+                              JC    $694
+                              JU    $5AE
+694: 00 62 00 E5 3D           DLD   1
+53D: CF 21 11 D0 03           XC    1
+                              TZ   
+                              AC    3
+5CF: 00 95 53 0D 00           AD    $553        ; Look up the digit handler
+                              JA                ; from the table t $503.
+52B: B9 48 02 95 B5           BRS   3
+                              AD    $5B5
+5B9: 00 E5 3D 00 00           JU    $53D
+5F8: 16 40 00 F7 01           BLS   1
+                              JC    $701
+516: 16 78 91 F6 FC           OI    $91
+                              JC    $6FC
+                              JU    $516
+6FC: 94 23 09 23 0A           XC    3
+                              CL   
+                              XC    3
+                              JU    $694
+674: FF 40 00 F6 FC           BLS   1
+                              JC    $6FC
+6FF: 00 E6 94 00 00           JU    $694
+6A0: B1 40 02 23 0A           BLS   3
+                              XC    3
+6B1: 00 86 B5 E6 93           CA    $6B5
+                              JU    $693
+6AC: C1 40 00 23 0A           BLS   1
+                              XC    3
+6C1: 00 86 C5 E6 93           CA    $6C5
+                              JU    $693
+701: 01 78 3B F6 FC           OI    $3B
+                              JC    $6FC
+                              JU    $701
+782: 15 62 00 21 0A           DLD   1
+                              XC    1
+715: 00 E5 D6 00 00           JU    $5D6
+50A: 0A 78 07 F7 0B           OI    $07         ; Print a '7' ???
+                              JC    $70B
+                              JU    $50A
+70B: 1F 23 09 23 0A           XC    3
+                              CL   
+                              XC    3
+71F: 00 E5 D6 00 00           JU    $5D6
+6CA: 28 00 00 00 00           DW    $2800000000
+553: 0A 0A 0A 85 03           DW    $0A0A0A8503
+;
+; Table of routines to print decimal digits.
+;
+503: 0A 78 10 F7 0B           OI    $10
+                              JC    $70B
+                              JU    $50A
+504: 0A 78 01 F7 0B           OI    $01
+                              JC    $70B
+                              JU    $50A
+505: 0A 78 02 F7 0B           OI    $02
+                              JC    $70B
+                              JU    $50A
+506: 0A 78 83 F7 0B           OI    $83
+                              JC    $70B
+                              JU    $50A
+507: 0A 78 04 F7 0B           OI    $04
+                              JC    $70B
+                              JU    $50A
+508: 0A 78 85 F7 0B           OI    $85
+                              JC    $70B
+                              JU    $50A
+509: 0A 78 86 F7 0B           OI    $86
+                              JC    $70B
+                              JU    $50A
+50B: 0A 78 08 F7 0B           OI    $08
+                              JC    $70B
+                              JU    $50A
+50C: 0A 78 89 F7 0B           OI    $89
+                              JC    $70B
+                              JU    $50A
