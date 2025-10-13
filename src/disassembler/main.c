@@ -358,7 +358,7 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
     unsigned posn = 0;
     uint16_t insn;
     int first = 1;
-    int have_indent = 0;
+    int have_indent = 1;
     while (posn < 4) {
         insn = (word >> ((3 - posn) * 8)) & 0xFF;
         ++posn;
@@ -366,11 +366,6 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
             insn <<= 8;
             insn |= (word >> ((3 - posn) * 8)) & 0xFF;
             ++posn;
-        }
-        if (insn == LOP_NN) {
-            /* Don't bother with no-op's as they are usually padding for
-             * when the next instruction doesn't fit in the current word. */
-            continue;
         }
         if ((insn & 0xF000) == LOP_JU) {
             /* If we explicitly jump to the next address, then there is
