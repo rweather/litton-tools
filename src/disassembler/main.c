@@ -231,6 +231,15 @@ static void disassemble_word_raw(litton_drum_loc_t addr, litton_word_t word)
     printf("| NEXT:$%03X\n", addr);
 }
 
+/* Determine if a word is a high-level origin pattern */
+static int is_origin_pattern(litton_word_t word)
+{
+    if ((word & 0xFFFFFFFF00ULL) != 0x000707E300ULL) {
+        return 0;
+    }
+    return 1;
+}
+
 /* Disassemble the high-level instructions in a word */
 static void disassemble_high_level_word(litton_word_t word, int pretty)
 {
@@ -242,10 +251,12 @@ static void disassemble_high_level_word(litton_word_t word, int pretty)
         insn = (word >> ((3 - posn) * 10)) & 0x3FF;
         ++posn;
         opcode = litton_hl_opcode_by_number(insn);
-        if (pretty) {
-            printf("     ");
-        } else {
+        if (!pretty) {
             printf("| ");
+        }
+        if (posn == 1 && is_origin_pattern(word)) {
+            printf("EMPTY\n");
+            return;
         }
         if (strlen(opcode->name) < 5) {
             printf("%-4s ", opcode->name);
@@ -295,6 +306,9 @@ static void disassemble_high_level_word(litton_word_t word, int pretty)
         }
         if (pretty) {
             printf("\n");
+            if (posn < 4) {
+                printf("                                     ");
+            }
         }
     }
     if (!pretty) {
@@ -344,6 +358,7 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
     unsigned posn = 0;
     uint16_t insn;
     int first = 1;
+    int have_indent = 0;
     while (posn < 4) {
         insn = (word >> ((3 - posn) * 8)) & 0xFF;
         ++posn;
@@ -366,7 +381,8 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
         }
         opcode = litton_opcode_by_number(insn);
         first = 0;
-        printf("     %-5s", opcode->name);
+        have_indent = 0;
+        printf("%-5s", opcode->name);
         switch (opcode->operand_type) {
         case LITTON_OPERAND_NONE:
             printf("\n");
@@ -400,12 +416,19 @@ static void disassemble_word_pretty(litton_drum_loc_t addr, litton_word_t word)
              * disassembling any more instructions from this word. */
             return;
         }
+        if (posn < 4) {
+            printf("                              ");
+            have_indent = 1;
+        }
     }
     next_addr = addr & 0x0F00;
     next_addr |= (word >> 32);
     if (first || next_addr != (addr + 1)) {
         /* Not jumping to the next address, so add the implicit jump */
-        printf("     %-5s $%03X\n", "JU", next_addr);
+        if (!first && !have_indent) {
+            printf("                              ");
+        }
+        printf("%-5s $%03X\n", "JU", next_addr);
     }
 }
 
@@ -453,20 +476,20 @@ static void disassemble_pretty(void)
                (unsigned)((word >> 8) & 0xFF),
                (unsigned)(word & 0xFF));
         if (!is_high_level_program_addr(addr)) {
-            printf("    \"");
+            printf(" \"");
             print_alpha_numeric(word);
-            printf("\"\n");
+            printf("\"   ");
         } else {
-            printf("\n");
+            printf("           ");
         }
         if (is_high_level_program_addr(addr)) {
             disassemble_high_level_word(word, 1);
         } else if (is_high_level_storage_addr(addr)) {
-            printf("     DW $%010lX\n", (unsigned long)word);
+            printf("DW   $%010lX\n", (unsigned long)word);
         } else if (is_valid_instruction_word(word)) {
             disassemble_word_pretty(addr, word);
         } else {
-            printf("     DW $%010lX\n", (unsigned long)word);
+            printf("DW    $%010lX\n", (unsigned long)word);
         }
     }
 }
