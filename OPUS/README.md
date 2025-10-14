@@ -68,6 +68,9 @@ then set the value at address $4EA in memory:
     S  4EB#                         ; Press Enter to stop.
     K  001#AA AA55 5577
 
+The "001#" part is the saved value of the K flag, which is saved to
+location $4EB in memory.  This can be changed to either 0 or 1 using "S".
+
 "S" in hexadecimal mode can be used to set any writable location in memory.
 The "W" command can be used to dump memory ranges in hexadecimal:
 

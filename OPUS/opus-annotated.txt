@@ -6,8 +6,8 @@
 ;   $4E6    Decimal, octal, or hexadecimal number format.
 ;   $4E7    Currently selected input and output devices.
 ;   $4E8    Current command character, aligned in bits 32..39.
-;   $4EA    Accumulator value to pass to native code executed with "J".
-;   $4EB    ???
+;   $4EA    Saved A value to pass to native code executed with "J".
+;   $4EB    Saved K value to pass to native code executed with "J".
 ;   $4ED    Mode: 1 = program registers, -1 = storage registers, 0 = hex mode.
 ;   $4F1    Link address for subroutines.
 ;   $4F2    Link address for subroutines.
@@ -29,14 +29,13 @@
 
 ;
 ; $FFF - Main entry point to OPUS upon a HALT, READY, RUN sequence.
-;
-; On entry, A = $FFFFFFFFFF and K = 1.
+; $7FF - Enter OPUS from a user program.
 ;
 FFF: 00 E7 FF 10 08           JU    $7FF
-7FF: 74 B4 EA 09 08           ST    $4EA        ; Save accumulator in $4EA.
+7FF: 74 B4 EA 09 08           ST    $4EA        ; Save the startup A in $4EA.
                               CL   
                               AK   
-774: 7B B4 EB 0F 0A           ST    $4EB        ; Set $4EB to 1.
+774: 7B B4 EB 0F 0A           ST    $4EB        ; Save the startup K in $4EB.
                               BI                ; Block interchange.
 77B: 87 7E C0 7E 49           IS    $C0         ; Reset all I/O devices.
                               IS    $49         ; Select keyboard and printer.
@@ -249,8 +248,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 781: 91 B4 FE C7 89           ST    $4FE        ; Put it in $4FE.
                               JM    $789        ; Select the current I/O devs.
 791: F1 0F 84 EB 0A           BI                ; Swap in the BI registers.
-                              CA    $4EB        ; Load 1 into the accumulator.
-7F1: 00 48 00 E4 FE           BRS   1           ; Convert it into zero.
+                              CA    $4EB        ; Load the saved carry flag
+7F1: 00 48 00 E4 FE           BRS   1           ; and shift it back into K.
                               JU    $4FE        ; Jump to the native code.
 6FD: 00 84 EA E0 00           CA    $4EA
                               JU    $000
@@ -263,8 +262,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JU    $5AC        ; Otherwise "ERR" and stop.
 72C: 16 84 EA B4 FD           CA    $4EA        ; Copy saved accumulator in
                               ST    $4FD        ; $4EA to $4FD.
-716: F9 84 EB B4 F4           CA    $4EB        ; Load register number 1
-                              ST    $4F4        ; and put it into $4F4.
+716: F9 84 EB B4 F4           CA    $4EB        ; Load the saved K value and
+                              ST    $4F4        ; put it into $4F4.
 7F9: 26 C6 99 C6 A1           JM    $699        ; Print register number in $4F4.
                               JM    $6A1        ; Print value in $4FD.
 726: 00 E5 BC 00 00           JU    $5BC        ; Return to the main loop.
