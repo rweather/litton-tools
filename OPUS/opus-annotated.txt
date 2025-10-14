@@ -4,14 +4,15 @@
 ;   $300    Start of the program area, extends to $37F.
 ;   $380    Start of the storage area for Vnn registers, extends to $3BF.
 ;   $4E6    Decimal, octal, or hexadecimal number format.
-;   $4E7    ???
+;   $4E7    Currently selected input and output devices.
 ;   $4E8    Current command character, aligned in bits 32..39.
-;   $4EA    ???
+;   $4EA    Accumulator value to pass to native code executed with "J".
 ;   $4EB    ???
 ;   $4ED    Mode: 1 = program registers, -1 = storage registers, 0 = hex mode.
 ;   $4F1    Link address for subroutines.
 ;   $4F2    Link address for subroutines.
 ;   $4F4    Register number that was entered by the user.
+;   $4F9    Link address for low-level subroutines.
 ;   $4FB    Return instruction for the high-level interpreter, used by JR & JMK.
 ;   $4FC    Return address for the high-level interpreter, used by JR & JMK.
 ;   $4FD    Contents of a register when fetching from memory.
@@ -32,7 +33,7 @@
 ; On entry, A = $FFFFFFFFFF and K = 1.
 ;
 FFF: 00 E7 FF 10 08           JU    $7FF
-7FF: 74 B4 EA 09 08           ST    $4EA        ; Set $4EA to All-1's.
+7FF: 74 B4 EA 09 08           ST    $4EA        ; Save accumulator in $4EA.
                               CL   
                               AK   
 774: 7B B4 EB 0F 0A           ST    $4EB        ; Set $4EB to 1.
@@ -177,7 +178,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 616: C7 3C C0 00 C1     ; W - Print Registers            - Handler: $68C
 617: 32 44 02 00 D1     ; X - Print Register A           - Handler: $68D
 618: 51 50 00 00 E1     ; Y - Print Register B           - Handler: $68E
-619: 33 44 05 00 01     ; Z - ??? - Same as P            - Handler: $680
+619: 33 44 05 00 01     ; Z - Same as P                  - Handler: $680
 61A: 93 45 40 00 00     ; *
 61B: 34 42 01 00 24     ; ,
 61C: 5F 3C 80 00 24     ; I
@@ -185,10 +186,10 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 61E: 5F 35 40 00 00     ; III
 61F: 36 80 00 15 01     ; IIII - Run Application         - Handler: $690
 620: CE 3A 40 00 02     ; - / Diamond
-621: 00 80 00 20 11     ; J - Undocumented Command       - Handler: $681
-622: C7 4D 00 00 21     ; K - Undocumented Command       - Handler: $682
+621: 00 80 00 20 11     ; J - Jump to Native Code        - Handler: $681
+622: C7 4D 00 00 21     ; K - Print Native Accumulator   - Handler: $682
 223: 00 80 00 08 31     ; L - Punch Tape Leader          - Handler: $683
-624: 97 7C 40 00 01     ; M - ??? - Same as P            - Handler: $680
+624: 97 7C 40 00 01     ; M - Same as P                  - Handler: $680
 625: 00 80 00 24 51     ; N - Select Decimal Format      - Handler: $685
 626: 97 7C 80 00 61     ; O - Select Octal Format        - Handler: $686
 627: 00 80 00 28 01     ; P - Select Program Registers   - Handler: $680
@@ -207,9 +208,9 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 634: C6 10 00 00 D9     ; D
 635: 00 80 00 1C E9     ; E
 636: D1 3D 65 00 F9     ; F
-637: 00 80 00 30 01     ; G - ??? - Same as P            - Handler: $680
+637: 00 80 00 30 01     ; G - Same as P                  - Handler: $680
 638: 49 2C F1 95 11     ; H - Select Hexadecimal Format  - Handler: $691
-639: 00 80 00 34 01     ; I - ??? - Same as P            - Handler: $680
+639: 00 80 00 34 01     ; I - Same as P                  - Handler: $680
 63A: 9A 75 12 00 84     ;
 63B: 00 80 00 3C 00     ; .
 63C: CF 18 F3 00 00     ; Red Ribbon Print
@@ -235,34 +236,50 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JU    $534
 78C: 00 00 00 00 01           DW    $0000000001
 ;
-; $681 - Command handler for J - Undocumented Command.
+; $681 - Command handler for J - Jump to Native Code (undocumented).
 ;
-; TODO
+681: 00 84 ED E5 21           CA    $4ED        ; Are we in hexadecimal mode?
+521: AC 11 F5 A8 0A           TZ   
+                              JC    $5A8        ; Jump to $5A8 if we are.
+5AC: 00 E7 0C 00 00           JU    $70C        ; Otherwise "ERR" and stop.
+5A8: 98 C5 76 C7 8A           JM    $576        ; Prompt for a hex address.
+                              JM    $78A        ; Print a CRLF.
+598: 00 84 F4 E6 78           CA    $4F4        ; Get the user's address.
+678: 00 96 FD E7 81           AD    $6FD        ; Add to instruction at $6FD.
+781: 91 B4 FE C7 89           ST    $4FE        ; Put it in $4FE.
+                              JM    $789        ; Select the current I/O devs.
+791: F1 0F 84 EB 0A           BI                ; Swap in the BI registers.
+                              CA    $4EB        ; Load 1 into the accumulator.
+7F1: 00 48 00 E4 FE           BRS   1           ; Convert it into zero.
+                              JU    $4FE        ; Jump to the native code.
+6FD: 00 84 EA E0 00           CA    $4EA
+                              JU    $000
 ;
-681: 00 84 ED E5 21           CA    $4ED
-                              JU    $521
+; $682 - Command handler for K - Print Native Accumulator (undocumented).
 ;
-; $682 - Command handler for K - Undocumented Command.
-;
-; TODO
-;
-682: 00 84 ED E5 25           CA    $4ED
-                              JU    $525
+682: 00 84 ED E5 25           CA    $4ED        ; Are we in hexadecimal mode?
+525: AC 11 F7 2C 0A           TZ   
+                              JC    $72C        ; Jump to $72C if we are.
+                              JU    $5AC        ; Otherwise "ERR" and stop.
+72C: 16 84 EA B4 FD           CA    $4EA        ; Copy saved accumulator in
+                              ST    $4FD        ; $4EA to $4FD.
+716: F9 84 EB B4 F4           CA    $4EB        ; Load register number 1
+                              ST    $4F4        ; and put it into $4F4.
+7F9: 26 C6 99 C6 A1           JM    $699        ; Print register number in $4F4.
+                              JM    $6A1        ; Print value in $4FD.
+726: 00 E5 BC 00 00           JU    $5BC        ; Return to the main loop.
 ;
 ; $683 - Command handler for L - Punch Tape Leader.
 ;
-; TODO
-;
 683: 00 87 B8 E5 1C           CA    $7B8
 51C: 00 F5 11 E4 F9           JC    $511
-                              JU    $4F9
-511: 22 21 12 F5 9F           XC    1
+                              JU    $4F9        ; Return from subroutine.
+511: 22 21 12 F5 9F           XC    1           ; Get the value of S1.
                               TH   
                               JC    $59F
 522: 00 0B E5 9F 00           CM   
-59F: 00 21 E4 F9 00           XC    1
-4F9: 28 0A E4 80 25           NN
-                              JU    $480
+59F: 00 21 E4 F9 00           XC    1           ; Set S1 to abs(S1).
+                              JU    $4F9        ; Return from subroutine.
 7B8: FF FF FF FF D8           DW    $FFFFFFFFD8
 ;
 ; $684 - Command handler for P2 - Verify Program Tape.
@@ -535,7 +552,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 459: 69 3A F4 65 0A           TG    2
                               JC    $465    ; Goto $465 if 00 01xx xxxx.
 ;
-; $469 - Determine if the instruction is 0n nnyy yyyy or 1n nyyy yyy.
+; $469 - Determine if the instruction is 0n nnyy yyyy or 1n nyyy yyyy.
 ;
 469: 7A 80 02 12 0A           CA    2       ; Check the high bit of the
                               TH            ; current instruction.
@@ -798,7 +815,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $7A0
                               JU    $798
 ;
-; The entry points at $3D0, $3D1, $3D2, etc are the opcoe handlers
+; The entry points at $3D0, $3D1, $3D2, etc are the opcode handlers
 ; for the interpreter.  Opcode N is handled by address $3D0+N.
 ;
 ; $3D0 - Opcode 000 - Print "EMPTY ERR" and return to the main loop.
@@ -887,7 +904,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
     ; TODO
 ;
-; $3DC - Opcode 00C - ??? - Divide A by 10 and put the quotient in A
+; $3DC - Opcode 00C - DTEN - Divide A by 10 and put the quotient in A
 ; and the remainder in B.
 ;
 3DC: 00 80 01 E5 65           CA    1           ; Get the high-level A register.
@@ -907,7 +924,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 66C: 00 0B E5 45 00           CM                ; Negate the value.
                               JU    $545        ; Jump back.
 ;
-; $3DD - Opcode 00D - ???
+; $3DD - Opcode 00D - SSCAN - ???
 ;
 3DD: 00 83 83 E2 27           CA    $383        ; Load V03 into A.
 227: 3F 25 82 30 23           XC    5
@@ -1215,7 +1232,7 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $480
                               JU    $4A4
 ;
-; $3EF - Opcode 01F - ???
+; $3EF - Opcode 01F - SCLR - ???
 ;
 3EF: 00 C6 65 E4 34           JM    $665
 434: 49 84 3F B0 05           CA    $43F
@@ -1893,3 +1910,12 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 50C: 0A 78 89 F7 0B           OI    $89
                               JC    $70B
                               JU    $50A
+;
+; $789 - Select the current input and output devices in $4E7.
+;
+789: 18 B0 00 7E C0           ST    0           ; Store return address in S0.
+                              IS    $C0         ; Select device $C0.
+                              JU    $718
+718: 0A 84 E7 40 17           CA    $4E7        ; Select the current input and
+                              BLS   24          ; output devices.
+                              JU    $70A
