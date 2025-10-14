@@ -87,6 +87,12 @@ static void litton_add_memory_timing
     litton_add_opcode_timing(state, 1);
 }
 
+static int litton_is_device_selected(litton_state_t *state, uint8_t id)
+{
+    litton_device_t *device = litton_find_device(state, id);
+    return device != 0 && device->selected && device->id == id;
+}
+
 /**
  * @brief Adds timing for an I/O operation to simulate the baud rate of a byte.
  *
@@ -95,14 +101,26 @@ static void litton_add_memory_timing
 static void litton_add_io_timing(litton_state_t *state)
 {
     /*
-     * One byte at 300 baud is roughly equivalent to 833 word times.
-     * However, we can overlap processing and I/O, particularly output.
+     * The Litton documentation indicates that the printer was about
+     * 35 characters per second and the tape reader/punch was about
+     * 50 characters per second.
+     *
+     * One byte at 35 characters per second is roughly equivalent to 714
+     * word times, and one byte at 50 characters per second is roughly
+     * equivalent to 500 word times.  However, we can overlap processing
+     * and I/O, particularly output.
      *
      * We attempt to simulate when the I/O device is next ready after
      * sending the last byte.  If that time has already passed, we do the
      * I/O immediately.  Otherwise simulate waiting on device busy.
      */
-    uint64_t predict_next_io = state->last_io_counter + 833 * LITTON_WORD_BITS;
+    uint64_t predict_next_io = state->last_io_counter;
+    if (litton_is_device_selected(state, LITTON_DEVICE_READER) ||
+            litton_is_device_selected(state, LITTON_DEVICE_PUNCH)) {
+        predict_next_io += 500 * LITTON_WORD_BITS;
+    } else {
+        predict_next_io += 714 * LITTON_WORD_BITS;
+    }
     if (predict_next_io > state->cycle_counter) {
         uint64_t bits = predict_next_io - state->cycle_counter;
         bits += LITTON_WORD_BITS - 1; /* Round up */
