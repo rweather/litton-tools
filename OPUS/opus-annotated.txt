@@ -564,7 +564,8 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               AD    $42C
 430: 00 0D 00 00 00           JA            ; Jump to $3C0+nn.
 ;
-; $465 - Handle instructions with the bit pattern 00 01xx xxxx.
+; $465 - Handle instructions with the bit pattern 00 010x xxxx (MDVnn) or
+; 00 011x xxxx (OUTnn).
 ;
 465: 76 85 69 1A 0A           CA    $569    ; Extract the bottom 5 bits of
                               LA    2       ; the instruction into A.
@@ -580,6 +581,10 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JU    $430    ; Execute the instruction in A.
 569: 07 C0 00 00 00           DW    $07C0000000
 284: 83 80 20 E4 0B           DW    $838020E40B
+40B: 1E 80 02 40 04           CA    2       ; Is bit 5 of the instruction a 1?
+                              BLS   5
+41E: 00 F4 22 E4 A5           JC    $422    ; If yes, instruction is OUTnn.
+                              JU    $4A5    ; If no, instruction is MDVnn.
 ;
 ; $4D2- Handle instructions with the bit pattern 00 00xx xxxx.
 ;
@@ -687,10 +692,10 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 ;
 ; $585 - Read hexadecimal number.
 ;
-585: 94 21 09 20 0A "UJ9-@"   XC    1           ; Put return address in S1.
+585: 94 21 09 20 0A           XC    1           ; Put return address in S1.
                               CL                ; Set S0 to zero.
                               XC    0
-594: 40 C5 17 40 03 "..X.3"   JM    $517        ; Read and parse a digit.
+594: 40 C5 17 40 03           JM    $517        ; Read and parse a digit.
                               BLS   4           ; Shift up by 4 bits.
                               JU    $540        ; Add it to the working value.
 ;
@@ -814,7 +819,70 @@ FFF: 00 E7 FF 10 08           JU    $7FF
                               JC    $7A0
                               JU    $798
 ;
-; The entry points at $3D0, $3D1, $3D2, etc are the opcode handlers
+; The entry points at $3C0, $3C1, $3C2, etc are opcode handlers
+; for the interpreter for opcodes of the form "nn nnxx xxxx".
+; The "nnnn" is added to $3C0 to find the handler.  Some of these
+; are unused due to the way the instruction bit patterns are decoded.
+;
+3C0: 00 00 00 00 03           DW    $0000000003 ; Unused opcode.
+3C1: 00 07 07 E3 C1           HH    7           ; Unused opcode.
+                              HH    7
+                              JU    $3C1
+;
+; $3C2 - Opcode handler for ACCnn - Add Vnn to A.
+;
+3C2: F4 C4 1A 83 80           JM    $41A        ; Load the value of Vnn.
+                              CA    $380
+3F4: 00 90 01 E3 FF           AD    1           ; Add A, which is in BI-1.
+                              JU    $3FF        ; Store the result back to A.
+41A: 00 90 00 0D 00           AD    0           ; Add Vnn register number to
+                              JA                ; return instruction and jump.
+;
+; $3C3 - Opcode handler for BVnn - Bring the value of Vnn into A.
+;
+3C3: F5 C4 1A 83 80           JM    $41A        ; Load the value of Vnn.
+                              CA    $380
+3F5: 00 21 25 E4 80           XC    1           ; Put the value of Vnn into A.
+                              XC    5           ; Put the previous A into B.
+                              JU    $480        ; Back to interpreter main loop.
+;
+; $3C4 - Opcode handler for SVnn - Store the value of A into Vnn.
+;
+3C4: FF C4 21 B3 80           JM    $421        ; Store to Vnn.
+                              ST    $380
+                              JU    $3FF
+;
+; $3C4 - Opcode handler for UVnn - Add A to the value in Vnn.
+;
+3C5: F6 C4 1A 83 80           JM    $41A        ; Load the value of Vnn.
+                              CA    $380
+3F6: 00 90 01 E4 85           AD    1           ; Add it to A.
+485: 00 20 94 93 0D           XC    0
+                              AD    $493
+                              JA   
+493: 20 B3 80 E4 80           XC    0           ; Store back to Vnn.
+                              ST    $380
+                              JU    $480        ; Back to interpreter main loop.
+;
+; $3C6 - Opcode handler for SELnn - Select I/O devices according to nn.
+;
+3C6: 00 7E C0 E4 CE           IS    $C0         ; Deselect all devices.
+4CE: CE 20 94 DB 0D           XC    0           ; Add the device number to
+                              AD    $4DB        ; "IS $40" at $4DB.
+                              JA   
+4DB: 0A 7E 40 E4 64           IS    $40         ; Select the device.
+464: 06 94 E7 40 0F           AD    $4E7
+                              BLS   16
+406: 80 48 1F B4 E7           BRS   32
+                              ST    $4E7        ; Save the device id in $4E7.
+                              JU    $480        ; Back to interpreter main loop.
+;
+; $3C7 - Opcode handler for DUPnn - Duplicate nn chars from input to output.
+;
+    ; TODO
+
+;
+; The entry points at $3D0, $3D1, $3D2, etc are opcode handlers
 ; for the interpreter.  Opcode N is handled by address $3D0+N.
 ;
 ; $3D0 - Opcode 000 - Print "EMPTY ERR" and return to the main loop.
@@ -1268,6 +1336,15 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 4DF: 80 90 02 0A 22           AD    2
                               XC    2
                               JU    $480
+;
+; $4A5 - Opcode 040+nn - MDVnn - Multiply and Divide, (A * B) / Vnn.
+;
+4A5: 42 80 05 20 27           CA    5           ; Load the value of B.
+                              XC    0           ; Put B in S0 and Vnn in S7.
+                              XC    7
+442: 80 C4 00 C4 01           JM    $400        ; Perform the multiplication.
+                              JM    $401        ; Perform the division.
+                              JU    $480        ; Back to main interpreter loop.
 ;
 ; $700 - Print the number in S0 using the edit word formatting rules in S1.
 ;
@@ -1776,6 +1853,149 @@ FFF: 00 E7 FF 10 08           JU    $7FF
 4D4: FF FF FE 00 00           DW    $FFFFFE0000
 4DE: 0A 00 01 E4 F0           DW    $0A0001E4F0
 7F7: FF FF FF FC 00           DW    $FFFFFFFC00
+;
+; $400 - Multiplies S1 by S0 with 80-bit result in S0/S1 (S0 is the low word).
+;
+; The result in S0/S1 will be the absolute value of the product.  The high
+; bit of S3 will be set if the result is supposed to be negative.
+;
+400: 00 B4 F9 E7 0F           ST    $4F9        ; Store return address in $4F9.
+70F: 20 09 21 12 0A           CL   
+                              XC    1           ; Get the value of S1 into A.
+                              TH                ; Is it negative?
+720: 32 B0 03 F7 2F           ST    3           ; Save the sign of S1 in S3.
+                              JC    $72F        ; Jump to $72F if negative.
+732: 3E 11 F7 39 0A           TZ                ; Is it zero?
+                              JC    $739        ; Jump to $739 if it is zero.
+73E: 51 20 12 F7 4E           XC    0           ; Swap S0 and abs of orig S1.
+                              TH                ; Was the original S0 negative?
+                              JC    $74E        ; Jump to $74E if it is.
+751: 5C 11 F7 39 0A           TZ                ; Is it zero?
+                              JC    $739        ; Jump to $739 if it is zero.
+75C: 04 24 87 67 0A           XC    4           ; Put abs(multiplier) in S4.
+                              CA    $767        ; Load iteration counter into A.
+704: 00 4A 00 E7 0D           BRD   1           ; Shift S0/S1 right.
+70D: 1C 21 D0 04 21           XC    1
+                              AC    4           ; Condition add of S4 to S1.
+                              XC    1
+71C: 00 4A 00 E7 25           BRD   1           ; Unroll loop 4 more times.
+725: 34 21 D0 04 21           XC    1
+                              AC    4
+                              XC    1
+734: 00 4A 00 E7 3D           BRD   1
+73D: 4C 21 D0 04 21           XC    1
+                              AC    4
+                              XC    1
+74C: 00 4A 00 E7 55           BRD   1
+755: 64 21 D0 04 21           XC    1
+                              AC    4
+                              XC    1
+764: 00 4A 00 E7 6D           BRD   1
+76D: 7C 21 D0 04 21           XC    1
+                              AC    4
+                              XC    1
+77C: 07 48 00 F7 04           BRS   1           ; Shift iteration counter.
+                              JC    $704        ; If K set, do more iterations.
+707: 00 4A 00 E4 F9           BRD   1           ; Shift final result into place.
+                              JU    $4F9        ; Return from subroutine.
+72F: 00 0B E7 3E 00           CM                ; Negate the multiplicand.
+                              JU    $73E
+739: CC B0 01 B0 00           ST    1           ; Multiply by zero, set the
+                              ST    0           ; result to zero.
+7CC: 00 E4 F9 00 00           JU    $4F9        ; Return from subroutine.
+74E: 5C 0B 23 0B 23           CM                ; Negate the multiplier.
+                              XC    3           ; Also negate the final sign.
+                              CM   
+                              XC    3
+                              JU    $75C
+767: 00 00 00 00 7F           DW    $000000007F ; Iter count of 8 by shifting.
+;
+; $401 - Divides S0/S1 by S7 with the result in S1.
+;
+; The sign of the result will be set based on the high bit of S3.
+;
+; Division by zero will result in zero.
+;
+401: 00 B4 F9 E7 0E           ST    $4F9        ; Store return address in $4F9.
+70E: 21 87 12 24 0A           CA    $712        ; Put iteration counter into S4.
+                              XC    4
+721: AF 80 07 11 0A           CA    7           ; Is the divisor zero?
+                              TZ   
+7AF: 3A F7 39 12 0A           JC    $739        ; Jump to $739 if it is.
+                              TH                ; Is the divisor negative?
+73A: 4A F7 BE 0B 27           JC    $7BE        ; Jump to $7BE if it is.
+                              CM                ; Put -divisor in S7 so that it
+                              XC    7           ; can be used for subtraction.
+74A: 70 42 00 B4 EC           BLD   1           ; Shift result up by 1 bit.
+                              ST    $4EC        ; Put original divisor in $4EC.
+770: FC 40 00 97 78           BLS   1
+                              AD    $778
+7FC: 39 39 F7 84 09           TG    1
+                              JC    $784
+                              CL   
+                              JU    $739
+784: 85 84 EC 24 0A           CA    $4EC
+                              XC    4
+785: 93 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+793: A5 21 0A 42 80           XC    1
+                              BLDK  1
+7A5: B3 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+7B3: DD 21 0A 42 80           XC    1
+                              BLDK  1
+7DD: EB 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+7EB: FD 21 0A 42 80           XC    1
+                              BLDK  1
+7FD: 8B 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+78B: 9D 21 0A 42 80           XC    1
+                              BLDK  1
+79D: AB 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+7AB: BD 21 0A 42 80           XC    1
+                              BLDK  1
+7BD: 48 48 00 F7 C5           BRS   1
+                              JC    $7C5
+748: 5E 21 3C 20 08           XC    1
+                              TG    4
+                              XC    0
+                              AK   
+75E: 71 B0 01 97 ED           ST    1
+                              AD    $7ED
+771: 7E 09 F7 39 23           CL   
+                              JC    $739
+                              XC    3           ; Should the result be negative?
+77E: 8E 12 80 01 0A           TH   
+                              CA    1           ; Load the result into A.
+78E: 00 F7 92 E4 F9           JC    $792        ; Jump to $792 if result neg.
+                              JU    $4F9        ; Return from subroutine.
+792: 00 0B 21 E4 F9           CM                ; Negate the result in S1.
+                              XC    1
+                              JU    $4F9        ; Return from subroutine.
+7BE: 4A 0B 23 0B 23           CM                ; Negate the divisor.
+                              XC    3           ; Also negate the final sign.
+                              CM   
+                              XC    3
+                              JU    $74A
+7C5: D3 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+7D3: E5 21 0A 42 80           XC    1
+                              BLDK  1
+7E5: F3 21 3C D0 07           XC    1
+                              TG    4
+                              AC    7
+7F3: 85 21 0A 42 80           XC    1
+                              BLDK  1
+                              JU    $785
+712: 00 00 00 00 1F           DW    $000000001F
 ;
 ; $402 - Print the number in S1 using the formatting edit word in S0.
 ;
