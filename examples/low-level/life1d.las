@@ -8,7 +8,7 @@
 ; 1. Each cell X is the center of a pattern YYXYY where the Y cells are
 ;    X's neighbours.
 ; 2. If X is dead, then it comes alive if it has 2 or 3 live neighbours.
-; 3. If X is alive, then it dies if it has 2 or 4 live neighbours.
+; 3. If X is alive, then it stays alive if it has 2 or 4 live neighbours.
 ;
 ; In this version the playing field is 40 cells wide and 32 generations
 ; will be calculated.
