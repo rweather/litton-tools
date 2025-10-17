@@ -831,7 +831,13 @@ static void process_key(SDL_Keysym keysym)
     case SDLK_RETURN:
     case SDLK_RETURN2:
     case SDLK_KP_ENTER:
-        process_ascii_input('\r', 1);
+        if ((keysym.mod & KMOD_SHIFT) != 0) {
+            /* SHIFT+ENTER is an ordinary carriage return */
+            process_ascii_input('\r', 1);
+        } else {
+            /* ENTER is mapped to I */
+            process_ebs1231_code(034);
+        }
         break;
 
     case SDLK_BACKSPACE:
@@ -864,6 +870,69 @@ static void process_key(SDL_Keysym keysym)
         /* CTRL-M - carriage return */
         if ((keysym.mod & KMOD_CTRL) != 0) {
             process_ascii_input('\r', 1);
+        }
+        break;
+
+    case SDLK_w:
+        /* CTRL-W - carriage return */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ascii_input('\r', 1);
+        }
+        break;
+
+    case SDLK_e:
+        /* CTRL-E - II */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(035);  /* II */
+        }
+        break;
+
+    case SDLK_r:
+        /* CTRL-R - III */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(036);  /* III */
+        }
+        break;
+
+    case SDLK_t:
+        /* CTRL-T - IIII */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(037);  /* IIII */
+        }
+        break;
+
+    case SDLK_y:
+        /* CTRL-Y - P1 */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(014);  /* P1 */
+        }
+        break;
+
+    case SDLK_u:
+        /* CTRL-U - P2 */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(015);  /* P2 */
+        }
+        break;
+
+    case SDLK_o:
+        /* CTRL-O - P3 */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(016);  /* P3 */
+        }
+        break;
+
+    case SDLK_p:
+        /* CTRL-P - P4 */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(017);  /* P4 */
+        }
+        break;
+
+    case SDLK_k:
+        /* CTRL-K - SHIFT+P4 */
+        if ((keysym.mod & KMOD_CTRL) != 0) {
+            process_ebs1231_code(117);  /* SHIFT+P4 */
         }
         break;
 

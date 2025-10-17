@@ -358,6 +358,7 @@ static int litton_keyboard_find_escape(const char *escape, unsigned len)
         int code;
     };
     static struct key const sequences[] = {
+        {"OM",      0100},      /* SHIFT+ENTER: CR */
         {"OP",      034},       /* F1: I */
         {"OQ",      035},       /* F2: II */
         {"OR",      036},       /* F2: III */
@@ -418,6 +419,23 @@ static int litton_keyboard_read_escape(void)
     return -1;
 }
 
+static int litton_char_map_special(int ch)
+{
+    switch (ch) {
+    case '\r':  return 0034; /* Enter is mapped to I */
+    case 0x17:  return 0100; /* Ctrl-W is mapped to CR */
+    case 0x05:  return 0035; /* Ctrl-E is mapped to II */
+    case 0x12:  return 0036; /* Ctrl-R is mapped to III */
+    case 0x14:  return 0037; /* Ctrl-T is mapped to IIII */
+    case 0x19:  return 0014; /* Ctrl-Y is mapped to P1 */
+    case 0x15:  return 0015; /* Ctrl-U is mapped to P2 */
+    case 0x0F:  return 0016; /* Ctrl-O is mapped to P3 */
+    case 0x10:  return 0017; /* Ctrl-P is mapped to P4 */
+    case 0x0B:  return 0117; /* Ctrl-K is mapped to SHIFT+P4 */
+    }
+    return -1;
+}
+
 static int litton_keyboard_input
     (litton_state_t *state, litton_device_t *device,
      uint8_t *value, litton_parity_t parity)
@@ -470,6 +488,12 @@ static int litton_keyboard_input
                     *value = litton_add_parity(ch2, parity);
                     return 1;
                 }
+            }
+            ch2 = litton_char_map_special(ch);
+            if (ch2 >= 0) {
+                /* Special control key */
+                *value = litton_add_parity(ch2, parity);
+                return 1;
             }
             ch2 = litton_char_to_charset
                 (&ch, &posn, 1, state->keyboard_charset);
