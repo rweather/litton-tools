@@ -63,14 +63,13 @@ The machine must be halted to use the DRUM load and save buttons.
 
 When running OPUS, the following keys do useful things:
 
-* Enter or F1 - "I" function key - Terminate a line of input in "S" / store mode.
+* F1 or Ctrl+W - "I" function key - Terminate a line of input in "S" / store mode.
 * F4 or Ctrl+T - "IIII" function key - Run the high-level application program in memory.
 * F5 or Ctrl+Y - "P1" function key - Load a program from paper tape.
 * T - Save the high-level application program in memory to paper tape.
 
 The other Litton function keys are mapped as follows:
 
-* Shift+Enter or Ctrl+W - Return key.
 * F2 or Ctrl+E - "II" function key.
 * F3 or Ctrl+R - "III" function key.
 * F6 or Ctrl+U - "P2" function key.

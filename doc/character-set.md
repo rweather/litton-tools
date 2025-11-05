@@ -43,7 +43,7 @@ The Litton keyboard layout and the emulator's key mappings can be found
 <tr><td>031</td><td>Z</td><td>Z</td><td>Z</td><td>Z</td><td> </td></tr>
 <tr><td>032</td><td>*</td><td>*</td><td>*</td><td>*</td><td> </td></tr>
 <tr><td>033</td><td>,</td><td>,</td><td>,</td><td>,</td><td> </td></tr>
-<tr><td>034</td><td>I</td><td> </td><td>F1 or Enter</td><td> </td><td>Function Key I</td></tr>
+<tr><td>034</td><td>I</td><td> </td><td>F1 or Ctrl+W</td><td> </td><td>Function Key I</td></tr>
 <tr><td>035</td><td>II</td><td> </td><td>F2 or Ctrl+E</td><td> </td><td>Function Key II</td></tr>
 <tr><td>036</td><td>III</td><td> </td><td>F3 or Ctrl+R</td><td> </td><td>Function Key III</td></tr>
 <tr><td>037</td><td>IIII</td><td> </td><td>F4 or Ctrl+T</td><td> </td><td>Function Key IIII</td></tr>
@@ -79,7 +79,7 @@ The Litton keyboard layout and the emulator's key mappings can be found
 <tr><td>075</td><td>&#x25B3;(L)</td><td>LF on left</td><td>Up or Ctrl+J</td><td>LF</td><td>Index Left</td></tr>
 <tr><td>076</td><td>&#x25C1;</td><td>Backspace</td><td>Backspace</td><td>BS</td><td>Backspace</td></tr>
 <tr><td>077</td><td> </td><td> </td><td> </td><td> </td><td>Carriage Open or Close</td></tr>
-<tr><td>100</td><td>|&#x25C1;</td><td>CR</td><td>Shift+Enter or Ctrl+W</td><td>CR</td><td>Return</td></tr>
+<tr><td>100</td><td>|&#x25C1;</td><td>CR</td><td>Enter</td><td>CR</td><td>Return</td></tr>
 <tr><td>101</td><td>Shift+1</td><td>Position 4</td><td> </td><td>Tab</td><td>Move the Print Position</td></tr>
 <tr><td>102</td><td>Shift+2</td><td>Position 7</td><td> </td><td>Tab</td><td> </td></tr>
 <tr><td>103</td><td>Shift+3</td><td>Position 10</td><td> </td><td>Tab</td><td> </td></tr>

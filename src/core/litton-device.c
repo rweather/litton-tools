@@ -358,7 +358,6 @@ static int litton_keyboard_find_escape(const char *escape, unsigned len)
         int code;
     };
     static struct key const sequences[] = {
-        {"OM",      0100},      /* SHIFT+ENTER: CR */
         {"OP",      034},       /* F1: I */
         {"OQ",      035},       /* F2: II */
         {"OR",      036},       /* F2: III */
@@ -422,8 +421,8 @@ static int litton_keyboard_read_escape(void)
 static int litton_char_map_special(int ch)
 {
     switch (ch) {
-    case '\r':  return 0034; /* Enter is mapped to I */
-    case 0x17:  return 0100; /* Ctrl-W is mapped to CR */
+    case '\r':  return 0100; /* Enter is mapped to CR */
+    case 0x17:  return 0034; /* Ctrl-W is mapped to I */
     case 0x05:  return 0035; /* Ctrl-E is mapped to II */
     case 0x12:  return 0036; /* Ctrl-R is mapped to III */
     case 0x14:  return 0037; /* Ctrl-T is mapped to IIII */

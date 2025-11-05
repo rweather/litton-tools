@@ -831,13 +831,8 @@ static void process_key(SDL_Keysym keysym)
     case SDLK_RETURN:
     case SDLK_RETURN2:
     case SDLK_KP_ENTER:
-        if ((keysym.mod & KMOD_SHIFT) != 0) {
-            /* SHIFT+ENTER is an ordinary carriage return */
-            process_ascii_input('\r', 1);
-        } else {
-            /* ENTER is mapped to I */
-            process_ebs1231_code(034);
-        }
+        /* ENTER is an ordinary carriage return */
+        process_ascii_input('\r', 1);
         break;
 
     case SDLK_BACKSPACE:
@@ -874,9 +869,9 @@ static void process_key(SDL_Keysym keysym)
         break;
 
     case SDLK_w:
-        /* CTRL-W - carriage return */
+        /* CTRL-W - I */
         if ((keysym.mod & KMOD_CTRL) != 0) {
-            process_ascii_input('\r', 1);
+            process_ebs1231_code(034);  /* I */
         }
         break;
 
