@@ -817,6 +817,37 @@ void litton_reset(litton_state_t *state);
 litton_step_result_t litton_step(litton_state_t *state);
 
 /**
+ * @brief Get the value of a memory location.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] addr Address in memory to get.
+ *
+ * @return The value in the memory location.
+ */
+litton_word_t litton_get_memory(litton_state_t *state, litton_drum_loc_t addr);
+
+/**
+ * @brief Set the value of a memory location.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] addr Address in memory to set.
+ * @param[in] value The value to set into the memory location.
+ */
+void litton_set_memory
+    (litton_state_t *state, litton_drum_loc_t addr, litton_word_t value);
+
+/**
+ * @brief Get the address of a memory location.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] addr Location in memory to get the address of.
+ *
+ * @return The address of the memory location.
+ */
+litton_word_t *litton_get_memory_address
+    (litton_state_t *state, litton_drum_loc_t addr);
+
+/**
  * @brief Get the value of a scratchpad register.
  *
  * @param[in,out] state The state of the computer.
@@ -835,6 +866,16 @@ litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S);
  */
 void litton_set_scratchpad
     (litton_state_t *state, uint8_t S, litton_word_t value);
+
+/**
+ * @brief Get the address of a scratchpad register.
+ *
+ * @param[in,out] state The state of the computer.
+ * @param[in] S Scratchpad register number, 0 to 7.
+ *
+ * @return The address of scratchpad register S.
+ */
+litton_word_t *litton_get_scratchpad_address(litton_state_t *state, uint8_t S);
 
 /**
  * @brief Loads the contents of a drum image.
@@ -861,6 +902,13 @@ int litton_load_drum
  * could not be opened.
  */
 int litton_save_drum(litton_state_t *state, const char *filename);
+
+/**
+ * @brief Loads the built-in copy of OPUS into memory.
+ *
+ * @param[in,out] state The state of the computer.
+ */
+void litton_load_opus(litton_state_t *state);
 
 /**
  * @brief Clear the contents of memory ready to load a new drum image.

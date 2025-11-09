@@ -26,8 +26,12 @@
 
 void litton_clear_memory(litton_state_t *state)
 {
+    litton_drum_loc_t addr;
+
     /* Clear the drum */
-    memset(state->drum, 0, sizeof(state->drum));
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+        litton_set_memory(state, addr, 0);
+    }
 
     /* Set the default entry point at reset time to the last word in memory */
     state->entry_point = LITTON_DRUM_MAX_SIZE - 1;
@@ -119,13 +123,36 @@ void litton_reset(litton_state_t *state)
     state->K = 1;
 }
 
+litton_word_t litton_get_memory(litton_state_t *state, litton_drum_loc_t addr)
+{
+    return state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)];
+}
+
+void litton_set_memory
+    (litton_state_t *state, litton_drum_loc_t addr, litton_word_t value)
+{
+    state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)] = value;
+}
+
+litton_word_t *litton_get_memory_address
+    (litton_state_t *state, litton_drum_loc_t addr)
+{
+    return &(state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)]);
+}
+
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)
 {
-    return state->drum[S];
+    return litton_get_memory(state, S & (LITTON_DRUM_RESERVED_SECTORS - 1));
 }
 
 void litton_set_scratchpad
     (litton_state_t *state, uint8_t S, litton_word_t value)
 {
-    state->drum[S] = value;
+    litton_set_memory(state, S & (LITTON_DRUM_RESERVED_SECTORS - 1), value);
+}
+
+litton_word_t *litton_get_scratchpad_address(litton_state_t *state, uint8_t S)
+{
+    return litton_get_memory_address
+        (state, S & (LITTON_DRUM_RESERVED_SECTORS - 1));
 }

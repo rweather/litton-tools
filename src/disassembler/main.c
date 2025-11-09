@@ -324,7 +324,7 @@ static void disassemble_raw(void)
         if (!use_mask[addr]) {
             continue;
         }
-        word = machine.drum[addr];
+        word = litton_get_memory(&machine, addr);
         if (is_high_level_program_addr(addr)) {
             printf("P%03d [%03X]: ", addr - 0x300, addr);
         } else if (is_high_level_storage_addr(addr)) {
@@ -456,7 +456,7 @@ static void disassemble_pretty(void)
         if (!use_mask[addr]) {
             continue;
         }
-        word = machine.drum[addr];
+        word = litton_get_memory(&machine, addr);
         if (is_high_level_program_addr(addr)) {
             printf("P%03d [%03X]: ", addr - 0x300, addr);
         } else if (is_high_level_storage_addr(addr)) {
@@ -509,7 +509,7 @@ static void disassemble_visit(litton_drum_loc_t addr)
     int first;
     for (;;) {
         /* Get the next word and mark it as done */
-        word = machine.drum[addr];
+        word = litton_get_memory(&machine, addr);
         is_var = (visited[addr] == VISIT_VARIABLE);
         visited[addr] = VISIT_DONE;
 
@@ -702,6 +702,7 @@ static void find_address_using_instructions(litton_word_t word)
 static void disassemble_straighten(void)
 {
     litton_drum_loc_t addr;
+    litton_word_t word;
 
     /* Mark all words as unvisited to begin with */
     memset(visited, VISIT_NONE, sizeof(visited));
@@ -715,8 +716,9 @@ static void disassemble_straighten(void)
 
     /* Find instructions that use an address and classify them */
     for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
-        if (is_valid_instruction_word(machine.drum[addr])) {
-            find_address_using_instructions(machine.drum[addr]);
+        word = litton_get_memory(&machine, addr);
+        if (is_valid_instruction_word(word)) {
+            find_address_using_instructions(word);
         }
     }
 
@@ -785,7 +787,8 @@ static void dump_strings(void)
         }
         printf("%03X: ", addr);
         for (offset = 0; offset < 8; ++offset) {
-            print_alpha_numeric(machine.drum[addr + offset]);
+            print_alpha_numeric
+                (litton_get_memory(&machine, addr + offset));
         }
         printf("\n");
     }
@@ -797,7 +800,7 @@ static void dump_binary(void)
     litton_drum_loc_t addr;
     litton_word_t word;
     for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
-        word = machine.drum[addr];
+        word = litton_get_memory(&machine, addr);
         putc((word >> 32) & 0xFF, stdout);
         putc((word >> 24) & 0xFF, stdout);
         putc((word >> 16) & 0xFF, stdout);
@@ -830,7 +833,7 @@ static void dump_pixels(void)
     printf("128 64\n");
     printf("255\n");
     for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
-        word = machine.drum[addr];
+        word = litton_get_memory(&machine, addr);
         pix1 = word >> 20;
         pix2 = word & 0x0FFFFF;
         dump_pixel(pix1);

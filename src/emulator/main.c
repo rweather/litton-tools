@@ -26,7 +26,6 @@
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
-#include "core/litton-opus.h"
 
 static void usage(const char *progname)
 {
@@ -89,7 +88,7 @@ int main(int argc, char *argv[])
             return 1;
         }
     } else {
-        memcpy(machine.drum, opus, sizeof(opus));
+        litton_load_opus(&machine);
     }
 
     /* Create the standard devices */

@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "litton-opus.h"
 
 static int litton_from_hex(int ch)
 {
@@ -86,7 +87,7 @@ static int litton_load_tape
                 break;
             }
             word &= LITTON_WORD_MASK;
-            state->drum[addr] = word;
+            litton_set_memory(state, addr, word);
             if (use_mask) {
                 use_mask[addr] = 1;
             }
@@ -98,7 +99,7 @@ static int litton_load_tape
                 break;
             }
             word &= LITTON_WORD_MASK;
-            state->drum[addr] = word;
+            litton_set_memory(state, addr, word);
             if (use_mask) {
                 use_mask[addr] = 1;
             }
@@ -222,7 +223,7 @@ int litton_load_drum
                 /* Clamp the address and word into range, and store */
                 addr &= LITTON_DRUM_MAX_SIZE - 1;
                 word &= LITTON_WORD_MASK;
-                state->drum[addr] = word;
+                litton_set_memory(state, addr, word);
                 if (use_mask) {
                     use_mask[addr] = 1;
                 }
@@ -257,8 +258,16 @@ int litton_save_drum(litton_state_t *state, const char *filename)
     }
     for (addr = 0; addr < state->drum_size; ++addr) {
         fprintf(file, "%03X:%010LX\n", addr,
-                (unsigned long long)(state->drum[addr]));
+                (unsigned long long)(litton_get_memory(state, addr)));
     }
     fclose(file);
     return 1;
+}
+
+void litton_load_opus(litton_state_t *state)
+{
+    litton_drum_loc_t addr;
+    for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
+        litton_set_memory(state, addr, opus[addr]);
+    }
 }

@@ -1388,7 +1388,7 @@ int main(int argc, char *argv[])
         }
     } else {
         /* No drum image, so load the default OPUS image instead */
-        memcpy(machine.drum, opus, sizeof(opus));
+        litton_load_opus(&machine);
     }
     create_devices();
 

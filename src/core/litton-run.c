@@ -241,7 +241,7 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_single_left_shift
-            (state, &(state->drum[S]),
+            (state, litton_get_scratchpad_address(state, S),
              (insn & 0xFF80) == LOP_BLSS ? 0 : K, 1);
         break;
 
@@ -252,7 +252,8 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_left_shift
-            (state, &(state->drum[1]), &(state->drum[0]),
+            (state, litton_get_scratchpad_address(state, 1),
+             litton_get_scratchpad_address(state, 0),
              (insn & 0xFF80) == LOP_BLD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
@@ -265,7 +266,8 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_left_shift
-            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]),
+            (state, litton_get_scratchpad_address(state, S + 1),
+             litton_get_scratchpad_address(state, S),
              (insn & 0xFF80) == LOP_BLDS ? 0 : K, 1);
         break;
 
@@ -287,7 +289,7 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_single_right_shift
-            (state, &(state->drum[S]),
+            (state, litton_get_scratchpad_address(state, S),
              (insn & 0xFF80) == LOP_BRSS ? 0 : K, 1);
         break;
 
@@ -298,7 +300,8 @@ static litton_step_result_t litton_binary_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_right_shift
-            (state, &(state->drum[1]), &(state->drum[0]),
+            (state, litton_get_scratchpad_address(state, 1),
+             litton_get_scratchpad_address(state, 0),
              (insn & 0xFF80) == LOP_BRD ? 0 : K, (insn & 0x7F) + 1);
         break;
 
@@ -311,7 +314,8 @@ static litton_step_result_t litton_binary_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_right_shift
-            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]),
+            (state, litton_get_scratchpad_address(state, S + 1),
+             litton_get_scratchpad_address(state, S),
              (insn & 0xFF80) == LOP_BRDS ? 0 : K, 1);
         break;
 
@@ -456,7 +460,8 @@ static litton_step_result_t litton_decimal_shift
         if ((insn & 0x7F) != 0) {
             return LITTON_STEP_ILLEGAL;
         }
-        litton_single_decimal_left_shift(state, &(state->drum[S]), 0, 1);
+        litton_single_decimal_left_shift
+            (state, litton_get_scratchpad_address(state, S), 0, 1);
         break;
 
     case LOP_DLSSC:
@@ -466,7 +471,8 @@ static litton_step_result_t litton_decimal_shift
         if ((insn & 0x7F) != 0) {
             return LITTON_STEP_ILLEGAL;
         }
-        litton_single_decimal_left_shift(state, &(state->drum[S]), 1, 1);
+        litton_single_decimal_left_shift
+            (state, litton_get_scratchpad_address(state, S), 1, 1);
         break;
 
     case LOP_DLD:
@@ -475,7 +481,8 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_left_shift
-            (state, &(state->drum[1]), &(state->drum[0]), 0, (insn & 0x7F) + 1);
+            (state, litton_get_scratchpad_address(state, 1),
+             litton_get_scratchpad_address(state, 0), 0, (insn & 0x7F) + 1);
         break;
 
     case LOP_DLDC:
@@ -484,7 +491,8 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_left_shift
-            (state, &(state->drum[1]), &(state->drum[0]), 1, (insn & 0x7F) + 1);
+            (state, litton_get_scratchpad_address(state, 1),
+             litton_get_scratchpad_address(state, 0), 1, (insn & 0x7F) + 1);
         break;
 
     case LOP_DLDS:
@@ -495,7 +503,8 @@ static litton_step_result_t litton_decimal_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_decimal_left_shift
-            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]), 0, 1);
+            (state, litton_get_scratchpad_address(state, S + 1),
+             litton_get_scratchpad_address(state, S), 0, 1);
         break;
 
     case LOP_DLDSC:
@@ -506,7 +515,8 @@ static litton_step_result_t litton_decimal_shift
             return LITTON_STEP_ILLEGAL;
         }
         litton_double_decimal_left_shift
-            (state, &(state->drum[(S + 1) & 0x07]), &(state->drum[S]), 1, 1);
+            (state, litton_get_scratchpad_address(state, S + 1),
+             litton_get_scratchpad_address(state, S), 1, 1);
         break;
 
     case LOP_DRS:
@@ -522,7 +532,8 @@ static litton_step_result_t litton_decimal_shift
         litton_add_memory_timing(state, 0);
         litton_add_memory_timing(state, 1);
         litton_double_decimal_right_shift
-            (state, &(state->drum[1]), &(state->drum[0]), (insn & 0x7F) + 1);
+            (state, litton_get_scratchpad_address(state, 1),
+             litton_get_scratchpad_address(state, 0), (insn & 0x7F) + 1);
         break;
 
     default:
@@ -799,8 +810,8 @@ litton_step_result_t litton_step(litton_state_t *state)
                 "\rCR=%02X, I=%010LX, A=%010LX, B=%02X, S0=%010LX, S1=%010LX, K=%d, P=%d, PC=",
                 state->CR, (unsigned long long)(state->I),
                 (unsigned long long)(state->A), state->B,
-                (unsigned long long)(state->drum[0]),
-                (unsigned long long)(state->drum[1]),
+                (unsigned long long)(litton_get_scratchpad(state, 0)),
+                (unsigned long long)(litton_get_scratchpad(state, 1)),
                 state->K, state->P);
     }
 
@@ -873,8 +884,9 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Interchange the Block Interchange Loop with the scratchpad */
             for (addr = 0; addr < LITTON_DRUM_RESERVED_SECTORS; ++addr) {
                 litton_add_memory_timing(state, addr);
-                temp = state->drum[addr]; /* Scratchpad */
-                state->drum[addr] = state->block_interchange_loop[addr];
+                temp = litton_get_scratchpad(state, addr);
+                litton_set_scratchpad
+                    (state, addr, state->block_interchange_loop[addr]);
                 state->block_interchange_loop[addr] = temp;
             }
 
@@ -1016,14 +1028,14 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Load from memory into A */
             litton_add_memory_timing(state, addr);
             litton_add_opcode_timing(state, 4);
-            state->A = state->drum[addr];
+            state->A = litton_get_memory(state, addr);
             break;
 
         case 0x90:
             /* Add memory to A, with carry out in K */
             litton_add_memory_timing(state, addr);
             litton_add_opcode_timing(state, 4);
-            state->A += state->drum[addr];
+            state->A += litton_get_memory(state, addr);
             state->K = (state->A > LITTON_WORD_MASK);
             state->A &= LITTON_WORD_MASK;
             break;
@@ -1032,7 +1044,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Store A to memory */
             litton_add_opcode_timing(state, 4);
             litton_add_memory_timing(state, addr);
-            state->drum[addr] = state->A;
+            litton_set_memory(state, addr, state->A);
             break;
 
         case 0xC0:
@@ -1053,7 +1065,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             state->A &= LITTON_WORD_MASK;
 
             /* Copy the destination instruction into I */
-            state->I = state->drum[addr];
+            state->I = litton_get_memory(state, addr);
             state->PC = addr;
             state->spin_counter = 0;
             break;
@@ -1063,7 +1075,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             if (state->K) {
                 litton_add_memory_timing(state, addr);
                 litton_add_opcode_timing(state, 4);
-                state->A += state->drum[addr];
+                state->A += litton_get_memory(state, addr);
                 state->K = (state->A > LITTON_WORD_MASK);
                 state->A &= LITTON_WORD_MASK;
             } else {
@@ -1075,7 +1087,7 @@ litton_step_result_t litton_step(litton_state_t *state)
             /* Unconditional jump */
             litton_add_memory_timing(state, addr);
             litton_add_opcode_timing(state, 4);
-            state->I = state->drum[addr];
+            state->I = litton_get_memory(state, addr);
             state->PC = addr;
             state->spin_counter = 0;
             break;
@@ -1086,7 +1098,7 @@ litton_step_result_t litton_step(litton_state_t *state)
                 /* Jump to the destination address */
                 litton_add_memory_timing(state, addr);
                 litton_add_opcode_timing(state, 4);
-                state->I = state->drum[addr];
+                state->I = litton_get_memory(state, addr);
                 state->PC = addr;
                 state->spin_counter = 0;
 
