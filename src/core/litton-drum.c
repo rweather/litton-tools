@@ -266,8 +266,17 @@ int litton_save_drum(litton_state_t *state, const char *filename)
 
 void litton_load_opus(litton_state_t *state)
 {
+#if LITTON_SMALL_MEMORY
+    /* OPUS is already implicitly loaded when using the small memory model */
+    (void)state;
+#else
     litton_drum_loc_t addr;
     for (addr = 0; addr < LITTON_DRUM_MAX_SIZE; ++addr) {
         litton_set_memory(state, addr, opus[addr]);
     }
+#endif
 }
+
+#if LITTON_SMALL_MEMORY
+const litton_word_t * const litton_opus = opus;
+#endif

@@ -23,6 +23,9 @@
 #include <litton/litton.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(__AVR__)
+#include <avr/pgmspace.h>
+#endif
 
 void litton_clear_memory(litton_state_t *state)
 {
@@ -123,21 +126,73 @@ void litton_reset(litton_state_t *state)
     state->K = 1;
 }
 
+#if LITTON_SMALL_MEMORY
+
+static litton_word_t *litton_get_track
+    (litton_state_t *state, litton_drum_loc_t addr)
+{
+    switch (addr >> 7) {
+    case 0:  return state->track0;
+    case 6:  return state->track6;
+    case 7:  return state->track7;
+    case 9:  return state->track9;
+    case 16: return state->track16;
+    default: return 0;
+    }
+}
+
+extern const litton_word_t * const litton_opus;
+
+#endif
+
 litton_word_t litton_get_memory(litton_state_t *state, litton_drum_loc_t addr)
 {
+#if LITTON_SMALL_MEMORY
+    litton_word_t *ptr = litton_get_track(state, addr);
+    if (ptr) {
+        /* Read from a writable track */
+        return ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)];
+    } else {
+        /* Read directly from the OPUS image in flash memory */
+#if defined(__AVR__)
+        litton_word_t word;
+        memcpy_P(&word, litton_opus + (addr & (LITTON_DRUM_MAX_SIZE - 1)), sizeof(word));
+        return word;
+#else
+        return litton_opus[addr & (LITTON_DRUM_MAX_SIZE - 1)];
+#endif
+    }
+#else
     return state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)];
+#endif
 }
 
 void litton_set_memory
     (litton_state_t *state, litton_drum_loc_t addr, litton_word_t value)
 {
+#if LITTON_SMALL_MEMORY
+    litton_word_t *ptr = litton_get_track(state, addr);
+    if (ptr) {
+        ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)] = value;
+    }
+#else
     state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)] = value;
+#endif
 }
 
 litton_word_t *litton_get_memory_address
     (litton_state_t *state, litton_drum_loc_t addr)
 {
+#if LITTON_SMALL_MEMORY
+    litton_word_t *ptr = litton_get_track(state, addr);
+    if (ptr) {
+        return &(ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)]);
+    } else {
+        return 0;
+    }
+#else
     return &(state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)]);
+#endif
 }
 
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)

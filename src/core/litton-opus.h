@@ -1,5 +1,10 @@
 /* Generated from opus.drum */
-static litton_word_t const opus[LITTON_DRUM_MAX_SIZE] = {
+#if defined(__AVR__)
+#include <avr/pgmspace.h>
+#elif !defined(PROGMEM)
+#define PROGMEM
+#endif
+static litton_word_t const opus[LITTON_DRUM_MAX_SIZE] PROGMEM = {
     [0x200] = 0x205C00F228,
     [0x201] = 0x130924820F,
     [0x202] = 0x00C233E41F,

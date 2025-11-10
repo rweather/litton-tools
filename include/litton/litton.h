@@ -659,6 +659,20 @@ int litton_is_valid_device_id(uint8_t id);
  */
 
 /**
+ * @def LITTON_SMALL_MEMORY
+ * @brief Define this to 1 for small memory host systems; e.g. Arduinos.
+ *
+ * The litton_state_t structure needs about 33000 bytes of RAM normally.
+ * This can be reduced to about 5300 bytes by putting the read-only
+ * OPUS tracks in flash.
+ */
+#if defined(__AVR__)
+#define LITTON_SMALL_MEMORY 1
+#else
+#define LITTON_SMALL_MEMORY 0
+#endif
+
+/**
  * @brief Full state of the Litton machine.
  */
 struct litton_state_s
@@ -683,8 +697,31 @@ struct litton_state_s
     /** Accumulator register, 40 bits */
     litton_word_t A;
 
+#if !LITTON_SMALL_MEMORY
+
     /** Contents of drum memory */
     litton_word_t drum[LITTON_DRUM_NUM_TRACKS * LITTON_DRUM_NUM_SECTORS];
+
+#else /* LITTON_SMALL_MEMORY */
+
+    /* Selected writable tracks, the rest comes from read-only flash */
+
+    /* Track 0, $000 to $07F, scratchpad and general-purpose storage */
+    litton_word_t track0[LITTON_DRUM_NUM_SECTORS];
+
+    /* Track 6, $300 to $37F, high-level assembly program space */
+    litton_word_t track6[LITTON_DRUM_NUM_SECTORS];
+
+    /* Track 7, $380 to $3FF, high-level assembly variables */
+    litton_word_t track7[LITTON_DRUM_NUM_SECTORS];
+
+    /* Track 9, $480 to $4FF, OPUS global variables */
+    litton_word_t track9[LITTON_DRUM_NUM_SECTORS];
+
+    /* Track 16, $800 to $87F, space for simple machine code programs */
+    litton_word_t track16[LITTON_DRUM_NUM_SECTORS];
+
+#endif /* LITTON_SMALL_MEMORY */
 
     /** Size of drum memory.  Some models have 4096 words, others have 2048 */
     litton_drum_loc_t drum_size;
