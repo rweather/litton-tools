@@ -81,6 +81,12 @@ will highlight.  Press the highlighted button to select a tape file.
 To close a tape file, press the button and then immediately cancel the
 file dialog.
 
+## Arduino version
+
+The `Arduino/Litton-Emulator` directory contains a version of the Litton
+emuluator that is designed to run on an Arduino Mega 2560.  See
+[this page](Arduino/README.md) for more information.
+
 ## Assembler
 
 There is a cross-assembler for low-level Litton machine code in

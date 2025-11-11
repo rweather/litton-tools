@@ -122,30 +122,6 @@ const litton_opcode_info_t *litton_opcode_by_name
     return 0;
 }
 
-int litton_name_match(const char *name1, const char *name2, size_t name2_len)
-{
-    int ch1, ch2;
-    while (*name1 != '\0' && name2_len > 0) {
-        ch1 = *name1++;
-        if (ch1 >= 'a' && ch1 <= 'z') {
-            ch1 = ch1 - 'a' + 'A';
-        }
-        ch2 = *name2++;
-        if (ch2 >= 'a' && ch2 <= 'z') {
-            ch2 = ch2 - 'a' + 'A';
-        }
-        if (ch1 != ch2) {
-            return 0;
-        }
-        --name2_len;
-    }
-    if (*name1 != '\0' || name2_len != 0) {
-        return 0;
-    } else {
-        return 1;
-    }
-}
-
 void litton_disassemble_instruction
     (FILE *out, litton_drum_loc_t addr, uint16_t insn)
 {
