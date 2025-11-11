@@ -128,7 +128,7 @@ void litton_reset(litton_state_t *state)
 
 #if LITTON_SMALL_MEMORY
 
-static litton_word_t *litton_get_track
+static uint8_t *litton_get_track
     (litton_state_t *state, litton_drum_loc_t addr)
 {
     switch (addr >> 7) {
@@ -137,6 +137,7 @@ static litton_word_t *litton_get_track
     case 7:  return state->track7;
     case 9:  return state->track9;
     case 16: return state->track16;
+    case 17: return state->track17;
     default: return 0;
     }
 }
@@ -152,10 +153,27 @@ extern const litton_word_t * const litton_opus;
 litton_word_t litton_get_memory(litton_state_t *state, litton_drum_loc_t addr)
 {
 #if LITTON_SMALL_MEMORY
-    litton_word_t *ptr = litton_get_track(state, addr);
+    uint8_t *ptr;
+    litton_word_t value;
+    if (addr < LITTON_DRUM_RESERVED_SECTORS) {
+        /* Read from the scratchpad loop instead of main memory */
+        return state->scratchpad[addr];
+    }
+    ptr = litton_get_track(state, addr);
     if (ptr) {
         /* Read from a writable track */
-        return ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)];
+        ptr += (addr & (LITTON_DRUM_NUM_SECTORS - 1)) * 5;
+#if defined(__AVR__)
+        value = 0;
+        memcpy(&value, ptr, 5);
+#else
+        value = ((litton_word_t)(ptr[0])) |
+               (((litton_word_t)(ptr[1])) << 8) |
+               (((litton_word_t)(ptr[2])) << 16) |
+               (((litton_word_t)(ptr[3])) << 24) |
+               (((litton_word_t)(ptr[4])) << 32);
+#endif
+        return value;
     } else {
         /* Read directly from the OPUS image in flash memory */
 #if defined(__AVR__)
@@ -175,45 +193,55 @@ void litton_set_memory
     (litton_state_t *state, litton_drum_loc_t addr, litton_word_t value)
 {
 #if LITTON_SMALL_MEMORY
-    litton_word_t *ptr = litton_get_track(state, addr);
+    uint8_t *ptr;
+    if (addr < LITTON_DRUM_RESERVED_SECTORS) {
+        /* Write to the scratchpad loop instead of main memory */
+        state->scratchpad[addr] = value;
+    }
+    ptr = litton_get_track(state, addr);
     if (ptr) {
-        ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)] = value;
+        ptr += (addr & (LITTON_DRUM_NUM_SECTORS - 1)) * 5;
+#if defined(__AVR__)
+        memcpy(ptr, &value, 5);
+#else
+        ptr[0] = (uint8_t)value;
+        ptr[1] = (uint8_t)(value >> 8);
+        ptr[2] = (uint8_t)(value >> 16);
+        ptr[3] = (uint8_t)(value >> 24);
+        ptr[4] = (uint8_t)(value >> 32);
+#endif
     }
 #else
     state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)] = value;
 #endif
 }
 
-litton_word_t *litton_get_memory_address
-    (litton_state_t *state, litton_drum_loc_t addr)
-{
-#if LITTON_SMALL_MEMORY
-    litton_word_t *ptr = litton_get_track(state, addr);
-    if (ptr) {
-        return &(ptr[addr & (LITTON_DRUM_NUM_SECTORS - 1)]);
-    } else {
-        return 0;
-    }
-#else
-    return &(state->drum[addr & (LITTON_DRUM_MAX_SIZE - 1)]);
-#endif
-}
-
 litton_word_t litton_get_scratchpad(litton_state_t *state, uint8_t S)
 {
+#if LITTON_SMALL_MEMORY
+    return state->scratchpad[S & (LITTON_DRUM_RESERVED_SECTORS - 1)];
+#else
     return litton_get_memory(state, S & (LITTON_DRUM_RESERVED_SECTORS - 1));
+#endif
 }
 
 void litton_set_scratchpad
     (litton_state_t *state, uint8_t S, litton_word_t value)
 {
+#if LITTON_SMALL_MEMORY
+    state->scratchpad[S & (LITTON_DRUM_RESERVED_SECTORS - 1)] = value;
+#else
     litton_set_memory(state, S & (LITTON_DRUM_RESERVED_SECTORS - 1), value);
+#endif
 }
 
 litton_word_t *litton_get_scratchpad_address(litton_state_t *state, uint8_t S)
 {
-    return litton_get_memory_address
-        (state, S & (LITTON_DRUM_RESERVED_SECTORS - 1));
+#if LITTON_SMALL_MEMORY
+    return &(state->scratchpad[S & (LITTON_DRUM_RESERVED_SECTORS - 1)]);
+#else
+    return &(state->drum[S & (LITTON_DRUM_RESERVED_SECTORS - 1)]);
+#endif
 }
 
 int litton_name_match(const char *name1, const char *name2, size_t name2_len)

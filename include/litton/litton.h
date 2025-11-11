@@ -672,7 +672,7 @@ int litton_char_map_special(int ch);
  * @brief Define this to 1 for small memory host systems; e.g. Arduinos.
  *
  * The litton_state_t structure needs about 33000 bytes of RAM normally.
- * This can be reduced to about 5300 bytes by putting the read-only
+ * This can be reduced to about 4100 bytes by putting the read-only
  * OPUS tracks in flash.
  */
 #if defined(__AVR__)
@@ -715,20 +715,26 @@ struct litton_state_s
 
     /* Selected writable tracks, the rest comes from read-only flash */
 
+    /** Words in the scratchpad loop */
+    litton_word_t scratchpad[LITTON_DRUM_RESERVED_SECTORS];
+
     /* Track 0, $000 to $07F, scratchpad and general-purpose storage */
-    litton_word_t track0[LITTON_DRUM_NUM_SECTORS];
+    uint8_t track0[LITTON_DRUM_NUM_SECTORS * 5];
 
     /* Track 6, $300 to $37F, high-level assembly program space */
-    litton_word_t track6[LITTON_DRUM_NUM_SECTORS];
+    uint8_t track6[LITTON_DRUM_NUM_SECTORS * 5];
 
     /* Track 7, $380 to $3FF, high-level assembly variables */
-    litton_word_t track7[LITTON_DRUM_NUM_SECTORS];
+    uint8_t track7[LITTON_DRUM_NUM_SECTORS * 5];
 
     /* Track 9, $480 to $4FF, OPUS global variables */
-    litton_word_t track9[LITTON_DRUM_NUM_SECTORS];
+    uint8_t track9[LITTON_DRUM_NUM_SECTORS * 5];
 
-    /* Track 16, $800 to $87F, space for simple machine code programs */
-    litton_word_t track16[LITTON_DRUM_NUM_SECTORS];
+    /* Track 16, $800 to $87F, space for machine code programs */
+    uint8_t track16[LITTON_DRUM_NUM_SECTORS * 5];
+
+    /* Track 17, $880 to $8FF, space for machine code programs */
+    uint8_t track17[LITTON_DRUM_NUM_SECTORS * 5];
 
 #endif /* LITTON_SMALL_MEMORY */
 
@@ -881,17 +887,6 @@ litton_word_t litton_get_memory(litton_state_t *state, litton_drum_loc_t addr);
  */
 void litton_set_memory
     (litton_state_t *state, litton_drum_loc_t addr, litton_word_t value);
-
-/**
- * @brief Get the address of a memory location.
- *
- * @param[in,out] state The state of the computer.
- * @param[in] addr Location in memory to get the address of.
- *
- * @return The address of the memory location.
- */
-litton_word_t *litton_get_memory_address
-    (litton_state_t *state, litton_drum_loc_t addr);
 
 /**
  * @brief Get the value of a scratchpad register.
