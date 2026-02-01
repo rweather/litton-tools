@@ -41,6 +41,8 @@ static void usage(const char *progname)
     fprintf(stderr, "        Verbose disassembly of instructions as they are executed.\n");
     fprintf(stderr, "    -t\n");
     fprintf(stderr, "        Print elapsed machine time when the program halts.\n");
+    fprintf(stderr, "    -i INPUT\n");
+    fprintf(stderr, "        Specific an input tape file to use when running the program .\n");
 }
 
 static litton_state_t machine;
@@ -52,6 +54,7 @@ int main(int argc, char *argv[])
     int fast_mode = 0;
     int exit_status = 0;
     int print_elapsed = 0;
+    const char *input_tape = 0;
     int opt;
     uint64_t elapsed_ns;
     uint64_t checkpoint_counter;
@@ -63,7 +66,7 @@ int main(int argc, char *argv[])
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "fe:s:vt")) != -1) {
+    while ((opt = getopt(argc, argv, "fe:s:vti:")) != -1) {
         if (opt == 'e') {
             litton_set_entry_point(&machine, strtoul(optarg, NULL, 16));
         } else if (opt == 'f') {
@@ -74,6 +77,8 @@ int main(int argc, char *argv[])
             machine.disassemble = 1;
         } else if (opt == 't') {
             print_elapsed = 1;
+        } else if (opt == 'i') {
+            input_tape = optarg;
         } else {
             usage(progname);
             litton_free(&machine);
@@ -105,6 +110,14 @@ int main(int argc, char *argv[])
     litton_press_button(&machine, LITTON_BUTTON_HALT);
     litton_press_button(&machine, LITTON_BUTTON_READY);
     litton_press_button(&machine, LITTON_BUTTON_RUN);
+
+    /* Load the input tape if specified */
+    if (input_tape) {
+        if (!litton_set_input_tape(&machine, input_tape)) {
+            litton_free(&machine);
+            return 1;
+        }
+    }
 
     /* Keep running the program until halt, illegal instruction, or spinning */
     checkpoint_counter = machine.cycle_counter;

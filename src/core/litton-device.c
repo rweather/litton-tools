@@ -70,6 +70,11 @@ static int litton_device_match
 int litton_select_device(litton_state_t *state, int device_select_code)
 {
     litton_device_t *device = state->devices;
+    if (device_select_code == 0x09) {
+        /* Blackjack uses 0x09 to select the keyboard and printer,
+         * instead of the more correct 0x49.  Fix the code. */
+        device_select_code |= 0x40;
+    }
     while (device != 0) {
         if (litton_device_match(device, device_select_code)) {
             /* If the device is not currently selected, then select it */
@@ -252,7 +257,12 @@ static void litton_printer_output
              * print head in the right column. */
             --position;
             while (device->print_position < position) {
+#if defined(LITTON_TERMIOS)
+                /* Use "ESC [ C" for non-destructive spacing */
+                fputs("\033[C", stdout);
+#else
                 putc(' ', stdout);
+#endif
                 ++(device->print_position);
             }
             while (device->print_position > position) {
@@ -261,7 +271,26 @@ static void litton_printer_output
             }
         } else if (value == 075 || value == 055 || value == 054) {
             /* Line Feed Left / Line Feed Right / Line Feed Both */
+            unsigned col;
+            putc('\r', stdout);
             putc('\n', stdout);
+            for (col = 0; col < device->print_position; ++col) {
+                /* Space back over to the current print column */
+#if defined(LITTON_TERMIOS)
+                /* Use "ESC [ C" for non-destructive spacing */
+                fputs("\033[C", stdout);
+#else
+                putc(' ', stdout);
+#endif
+            }
+#if defined(LITTON_TERMIOS)
+        } else if (value == 056) {
+            /* Black ribbon print */
+            fputs("\033[m", stdout);
+        } else if (value == 074) {
+            /* Red ribbon print */
+            fputs("\033[31m", stdout);
+#endif
         } else {
             /* Convert the code into its ASCII form */
             const char *string_form;
@@ -598,7 +627,10 @@ static int litton_tape_reader_input
                 }
                 while (lastch && len < sizeof(buffer)) {
                     ch = getc(device->file);
-                    if (ch == EOF || ch == lastch) {
+                    if (ch == EOF) {
+                        break;
+                    } else if (ch == lastch) {
+                        buffer[len++] = (char)ch;
                         break;
                     }
                     buffer[len++] = (char)ch;

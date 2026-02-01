@@ -684,15 +684,26 @@ static void print_line_feed()
     }
 }
 
+/* Uncomment to print to stdout at the same time as the window */
+/*#define PRINT_TO_STDOUT 1*/
+
 static void print_ascii(uint8_t ch)
 {
-    /* Uncomment to print to stdout at the same time as the window.
+#if defined(PRINT_TO_STDOUT)
     putc(ch, stdout);
     fflush(stdout);
-    */
+#endif
     if (ch == '\r') {
         ui.printer_column = 0;
     } else if (ch == '\n') {
+#if defined(PRINT_TO_STDOUT)
+        /* Space back over to the current printer column on the new line */
+        int col;
+        for (col = 0; col < ui.printer_column; ++col) {
+            putc(' ', stdout);
+        }
+        fflush(stdout);
+#endif
         print_line_feed();
     } else if (ch == '\b') {
         if (ui.printer_column > 0) {
@@ -738,7 +749,16 @@ static void printer_output
             if (position >= PRINTER_LINE_SIZE) {
                 position = PRINTER_LINE_SIZE - 1;
             }
+#if defined(PRINT_TO_STDOUT)
+            while (position > ui.printer_column) {
+                print_ascii(' ');
+            }
+            while (position < ui.printer_column) {
+                print_ascii('\b');
+            }
+#else
             ui.printer_column = position;
+#endif
         } else if (value == 075 || value == 055 || value == 054) {
             /* Line Feed Left / Line Feed Right / Line Feed Both */
             print_ascii('\n');
@@ -1058,7 +1078,10 @@ static int paper_tape_input
             }
             while (lastch && len < sizeof(buffer)) {
                 ch = getc(device->file);
-                if (ch == EOF || ch == lastch) {
+                if (ch == EOF) {
+                    break;
+                } else if (ch == lastch) {
+                    buffer[len++] = (char)ch;
                     break;
                 }
                 buffer[len++] = (char)ch;
