@@ -163,6 +163,9 @@ typedef struct
     /** If this is non-zero, the program wants paper tape output */
     unsigned need_paper_tape_output;
 
+    /** Print to standard output at the same time as the GUI window */
+    unsigned print_to_stdout;
+
 } litton_ui_state_t;
 
 static litton_state_t machine;
@@ -684,26 +687,23 @@ static void print_line_feed()
     }
 }
 
-/* Uncomment to print to stdout at the same time as the window */
-/*#define PRINT_TO_STDOUT 1*/
-
 static void print_ascii(uint8_t ch)
 {
-#if defined(PRINT_TO_STDOUT)
-    putc(ch, stdout);
-    fflush(stdout);
-#endif
+    if (ui.print_to_stdout) {
+        putc(ch, stdout);
+        fflush(stdout);
+    }
     if (ch == '\r') {
         ui.printer_column = 0;
     } else if (ch == '\n') {
-#if defined(PRINT_TO_STDOUT)
-        /* Space back over to the current printer column on the new line */
-        int col;
-        for (col = 0; col < ui.printer_column; ++col) {
-            putc(' ', stdout);
+        if (ui.print_to_stdout) {
+            /* Space back over to the current printer column on the new line */
+            int col;
+            for (col = 0; col < ui.printer_column; ++col) {
+                putc(' ', stdout);
+            }
+            fflush(stdout);
         }
-        fflush(stdout);
-#endif
         print_line_feed();
     } else if (ch == '\b') {
         if (ui.printer_column > 0) {
@@ -749,21 +749,37 @@ static void printer_output
             if (position >= PRINTER_LINE_SIZE) {
                 position = PRINTER_LINE_SIZE - 1;
             }
-#if defined(PRINT_TO_STDOUT)
-            while (position > ui.printer_column) {
-                print_ascii(' ');
+            if (ui.print_to_stdout) {
+                while (position > ui.printer_column) {
+                    if (isatty(0) && isatty(1)) {
+                        fputs("\033[C", stdout);
+                        ++ui.printer_column;
+                    } else {
+                        print_ascii(' ');
+                    }
+                }
+                while (position < ui.printer_column) {
+                    print_ascii('\b');
+                }
+                fflush(stdout);
+            } else {
+                ui.printer_column = position;
             }
-            while (position < ui.printer_column) {
-                print_ascii('\b');
-            }
-#else
-            ui.printer_column = position;
-#endif
         } else if (value == 075 || value == 055 || value == 054) {
             /* Line Feed Left / Line Feed Right / Line Feed Both */
             print_ascii('\n');
         } else if (value == 056 || value == 074) {
-            /* Change ribbon color - ignored for now */
+            /* Change ribbon color */
+            if (ui.print_to_stdout && isatty(0) && isatty(1)) {
+                if (value == 056) {
+                    /* Black ribbon print */
+                    fputs("\033[m", stdout);
+                } else {
+                    /* Red ribbon print */
+                    fputs("\033[31m", stdout);
+                }
+                fflush(stdout);
+            }
         } else {
             /* Convert the code into its ASCII form */
             const char *string_form;
@@ -1390,11 +1406,13 @@ int main(int argc, char *argv[])
     litton_init(&machine);
 
     /* Process the command-line options */
-    while ((opt = getopt(argc, argv, "mv")) != -1) {
+    while ((opt = getopt(argc, argv, "mvs")) != -1) {
         if (opt == 'm') {
             maximized_mode = 1;
         } else if (opt == 'v') {
             machine.disassemble = 1;
+        } else if (opt == 's') {
+            ui.print_to_stdout = 1;
         } else {
             usage(progname);
             litton_free(&machine);
