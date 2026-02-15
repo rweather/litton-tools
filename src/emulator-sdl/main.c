@@ -1531,8 +1531,8 @@ int main(int argc, char *argv[])
     /* Load the font for the printer output */
     TTF_Init();
     ui.font = TTF_OpenFontRW
-        (SDL_RWFromConstMem(___fonts_DotMatrix_Regular_ttf,
-                            ___fonts_DotMatrix_Regular_ttf_len), 1, 20);
+        (SDL_RWFromConstMem(___fonts_DotMatrix_Bold_ttf,
+                            ___fonts_DotMatrix_Bold_ttf_len), 1, 14);
     surface = TTF_RenderText_Solid(ui.font, "LITTON", color);
     ui.font_width = surface->w / 6;
     ui.font_height = surface->h;

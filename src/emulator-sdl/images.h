@@ -323,8 +323,8 @@ extern const unsigned char front_panel_knob_I_32_png[];
 extern unsigned int front_panel_knob_I_32_png_len;
 
 /* Font data */
-extern const unsigned char ___fonts_DotMatrix_Regular_ttf[];
-extern unsigned int ___fonts_DotMatrix_Regular_ttf_len;
+extern const unsigned char ___fonts_DotMatrix_Bold_ttf[];
+extern unsigned int ___fonts_DotMatrix_Bold_ttf_len;
 
 #ifdef __cplusplus
 }
