@@ -45,7 +45,7 @@ static void usage(const char *progname)
 }
 
 /** Maximum number of lines to keep in the printer scroll-back buffer */
-#define PRINTER_MAX_LINES 12
+#define PRINTER_MAX_LINES 17
 
 /** Maximum size of a printer line before auto-CRLF */
 #define PRINTER_LINE_SIZE 200
@@ -813,6 +813,9 @@ static void printer_output
         /* Assume plain ASCII codes as input */
         print_ascii(value);
     }
+
+    /* Disable acceleration when printing */
+    state->acceleration_counter = 0;
 }
 
 static void process_input_char(uint8_t value)
